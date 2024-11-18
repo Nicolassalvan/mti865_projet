@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "mti865 projet"
+version = "0.1.0"
+description = ""
+authors = ["TBD <tbd@ens.etsmtl.ca>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+torch = "^2.5.1"
+torchvision = "^0.20.1"
+torchaudio = "^2.5.1"
+ipykernel = "^6.29.5"
+pandas = "^2.2.3"
+scikit-image = "^0.24.0"
+medpy = "^0.5.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
