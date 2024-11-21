@@ -165,3 +165,7 @@ cython_debug/
 #.idea/
 
 .DS_Store
+
+models/
+Results/
+runs/

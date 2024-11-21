@@ -22,24 +22,23 @@ import scipy.spatial
 labels = {0: 'Background', 1: 'Foreground'}
 
 
-def computeDSC(pred, gt):
-    dscAll = []
-    pdb.set_trace()
+def compute_dsc(pred, gt):
+    dsc_all = []
+    # pdb.set_trace()
     for i_b in range(pred.shape[0]):
         pred_id = pred[i_b, 1, :]
         gt_id = gt[i_b, 0, :]
-        dscAll.append(dc(pred_id.cpu().data.numpy(), gt_id.cpu().data.numpy()))
+        dsc_all.append(dc(pred_id.cpu().data.numpy(), gt_id.cpu().data.numpy()))
 
-    DSC = np.asarray(dscAll)
+    dsc = np.asarray(dsc_all)
 
-    return DSC.mean()
+    return dsc.mean()
 
 
 def getImageImageList(imagesFolder):
     if os.path.exists(imagesFolder):
         imageNames = [f for f in os.listdir(imagesFolder) if isfile(join(imagesFolder, f))]
-
-    imageNames.sort()
+        imageNames.sort()
 
     return imageNames
 
