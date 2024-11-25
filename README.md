@@ -1,2 +1,12 @@
-# mti865_projet
-Projet de MTI865 - Computer vision 
+# Projet de MTI865 - Apprentissage profond pour la vision pour ordinateur 
+
+## Groupe 
+
+## Liens utiles 
+
+## Structure 
+
+data : 
+
+docs : document utiles en pdf, articles 
+

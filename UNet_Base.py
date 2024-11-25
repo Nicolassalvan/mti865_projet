@@ -8,6 +8,13 @@ from torch import nn
 
 
 def initialize_weights(*models):
+    """
+    Initialize the weights of the given models using Kaiming normal initialization for Conv2d and Linear layers,
+    and setting BatchNorm2d weights to 1 and biases to 0.
+
+    Args:
+        *models: One or more PyTorch models whose weights need to be initialized.
+    """
     for model in models:
         for module in model.modules():
             if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
@@ -20,6 +27,18 @@ def initialize_weights(*models):
 
 
 class _EncoderBlock(nn.Module):
+    """
+    A helper class that defines the encoder block of the U-Net architecture, which consists of two 3x3 convolutions
+    with batch normalization and ReLU activation, followed by a 2x2 max pooling operation.
+
+    Args:
+        in_channels (int): The number of input channels.
+        out_channels (int): The number of output channels.
+        dropout (bool): Whether to apply dropout between the two convolutions.
+
+    Attributes:
+        encode (nn.Sequential): The encoder block.
+    """
     def __init__(self, in_channels, out_channels, dropout=False):
         super(_EncoderBlock, self).__init__()
         layers = [
@@ -37,6 +56,19 @@ class _EncoderBlock(nn.Module):
 
 
 class _DecoderBlock(nn.Module):
+    """
+    A helper class that defines the decoder block of the U-Net architecture, which consists of a 3x3 convolution 
+    with batch normalization and ReLU activation, followed by a 2x2 transposed convolution.
+
+    Args:
+        in_channels (int): The number of input channels.
+        middle_channels (int): The number of output channels for the convolution.
+        out_channels (int): The number of output channels.
+
+    Attributes:
+        decode (nn.Sequential): The decoder block.
+
+    """
     def __init__(self, in_channels, middle_channels, out_channels):
         super(_DecoderBlock, self).__init__()
         self.decode = nn.Sequential(
@@ -51,6 +83,26 @@ class _DecoderBlock(nn.Module):
 
 
 class UNet(nn.Module):
+    """
+    The U-Net architecture for image segmentation. 
+
+    Args:
+        num_classes (int): The number of classes to segment.
+
+    Attributes:
+        enc1 (nn.Module): The first encoder block.
+        enc2 (nn.Module): The second encoder block.
+        enc3 (nn.Module): The third encoder block.
+        enc4 (nn.Module): The fourth encoder block.
+        center (nn.Module): The center block.
+        dec4 (nn.Module): The fourth decoder block.
+        dec3 (nn.Module): The third decoder block.
+        dec2 (nn.Module): The second decoder block.
+        dec1 (nn.Module): The first decoder block.
+        final (nn.Conv2d): The final convolution layer.
+
+    
+    """
     def __init__(self, num_classes):
         super(UNet, self).__init__()
         self.enc1 = _EncoderBlock(1, 4)
@@ -69,7 +121,7 @@ class UNet(nn.Module):
             nn.BatchNorm2d(4),
             nn.ReLU(inplace=True),
         )
-        self.final = nn.Conv2d(64, num_classes, kernel_size=1)
+        self.final = nn.Conv2d(4, num_classes, kernel_size=1)
         initialize_weights(self)
 
     def forward(self, x):
@@ -85,3 +137,5 @@ class UNet(nn.Module):
         final = self.final(dec1)
 
         return F.upsample(final, x.size()[2:], mode='bilinear')
+
+    

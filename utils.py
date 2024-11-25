@@ -23,6 +23,16 @@ labels = {0: 'Background', 1: 'Foreground'}
 
 
 def computeDSC(pred, gt):
+    """
+    Compute the Dice Similarity Coefficient between the predicted segmentation and the ground truth segmentation.
+
+    Args:
+        pred (torch.Tensor): The predicted segmentation.
+        gt (torch.Tensor): The ground truth segmentation.
+    
+    Returns:
+        float: The Dice Similarity Coefficient between the predicted segmentation and the ground truth
+    """
     dscAll = []
     pdb.set_trace()
     for i_b in range(pred.shape[0]):
