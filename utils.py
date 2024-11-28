@@ -75,10 +75,10 @@ def plot_net_predictions(imgs, true_masks, masks_pred, batch_size):
         mask_pred = masks_pred[i].cpu().detach().numpy()
         mask_true = np.transpose(true_masks[i].cpu().detach().numpy(), (1, 2, 0))
 
-        ax[0, i].imshow(img)
+        ax[0, i].imshow(img, cmap="gray")
         ax[1, i].imshow(mask_to_rgb(mask_pred))
         ax[1, i].set_title("Predicted")
-        ax[2, i].imshow(mask_true)
+        ax[2, i].imshow(mask_true, cmap="gray")
         ax[2, i].set_title("Ground truth")
 
     return fig
