@@ -15,12 +15,15 @@ import statistics
 from PIL import Image
 from medpy.metric.binary import dc, hd, asd, assd
 import scipy.spatial
+import matplotlib.pyplot as plt
 
 # from scipy.spatial.distance import directed_hausdorff
 
 
-labels = {0: 'Background', 1: 'Foreground'}
 
+
+labels = {0: "Background", 1: "Foreground"}
+LABEL_TO_COLOR = {0: [0, 0, 0], 1: [255, 0, 0], 2: [0, 255, 0], 3: [0, 0, 255]}
 
 def computeDSC(pred, gt):
     """
@@ -127,3 +130,28 @@ class MaskToTensor(object):
     def __call__(self, img):
         return torch.from_numpy(np.array(img, dtype=np.int32)).float()
 
+
+def plot_net_predictions(imgs, true_masks, masks_pred, batch_size):
+
+    fig, ax = plt.subplots(3, batch_size, figsize=(20, 15))
+
+    for i in range(batch_size):
+
+        img = np.transpose(imgs[i].cpu().detach().numpy(), (1, 2, 0))
+        mask_pred = masks_pred[i].cpu().detach().numpy()
+        mask_true = np.transpose(true_masks[i].cpu().detach().numpy(), (1, 2, 0))
+
+        ax[0, i].imshow(img)
+        ax[1, i].imshow(mask_to_rgb(mask_pred))
+        ax[1, i].set_title("Predicted")
+        ax[2, i].imshow(mask_true)
+        ax[2, i].set_title("Ground truth")
+
+    return fig
+
+
+def mask_to_rgb(mask):
+    rgb = np.zeros(mask.shape + (3,), dtype=np.uint8)
+    for i in np.unique(mask):
+        rgb[mask == i] = LABEL_TO_COLOR[i]
+    return rgb
