@@ -21,7 +21,12 @@ import scipy.spatial
 
 
 labels = {0: "Background", 1: "Foreground"}
-LABEL_TO_COLOR = {0: [0, 0, 0], 1: [255, 0, 0], 2: [0, 255, 0], 3: [0, 0, 255]}
+LABEL_TO_COLOR = {
+    0: [0, 0, 0], # Background
+    1: [67, 67, 67], # Right ventricle (RV)
+    2: [154, 154, 154], # Myocardium (MYO)
+    3: [255, 255, 255] # Left ventricle (LV)
+}
 
 
 def compute_dsc(pred, gt):
@@ -119,6 +124,7 @@ def inference(net, img_batch, modelName, epoch):
         labels = to_var(labels)
 
         net_predictions = net(images)
+        print(net_predictions.shape)
         segmentation_classes = getTargetSegmentation(labels)
         CE_loss_value = CE_loss(net_predictions, segmentation_classes)
         losses.append(CE_loss_value.cpu().data.numpy())
