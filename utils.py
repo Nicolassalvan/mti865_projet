@@ -83,6 +83,26 @@ def plot_net_predictions(imgs, true_masks, masks_pred, batch_size):
 
     return fig
 
+def plot_net_predictions_without_ground_truth(imgs, masks_pred, img_names, batch_size):
+
+    fig, ax = plt.subplots(3, batch_size, figsize=(20, 15))
+
+    for i in range(batch_size):
+
+        img = np.transpose(imgs[i].cpu().detach().numpy(), (1, 2, 0))
+        mask_pred = masks_pred[i].cpu().detach().numpy()
+
+        img_name = os.path.basename(img_names[i])  # path image
+        img_name = os.path.splitext(img_name)[0] #only image name
+
+        ax[0, i].imshow(img) #image d'entrée 
+        ax[0, i].set_title("Input Image " + img_name)
+        
+        ax[1, i].imshow(mask_to_rgb(mask_pred)) #image sur laquelle on applique les prédictions
+        ax[1, i].set_title("Predicted Mask")
+
+    return fig
+
 
 def mask_to_rgb(mask):
     rgb = np.zeros(mask.shape + (3,), dtype=np.uint8)
@@ -113,6 +133,7 @@ def inference(net, img_batch, modelName, epoch):
         printProgressBar(
             i, total, prefix="[Inference] Getting segmentations...", length=30
         )
+        
         images, labels, img_names = data
 
         images = to_var(images)
@@ -148,6 +169,32 @@ def inference(net, img_batch, modelName, epoch):
 
     return losses.mean()
 
+def inferenceTeacher(net, img_batch, modelName, epoch, device):
+    total = len(img_batch)
+    print("nb images à traiter ", total)
+    net.eval() #se mettre en mode evaluation 
+
+    softMax = nn.Softmax().cuda()
+
+    for i, data in enumerate(img_batch):
+        
+        images, img_names = data
+        images = to_var(images).to(device)
+
+        net_predictions = net(images)
+        pred_y = softMax(net_predictions)
+        masks = torch.argmax(pred_y, dim=1)
+
+        path = os.path.join("./Results/Images/", modelName, str(epoch)) #creation chemin de sauvegarde
+        
+        if not os.path.exists(path):
+            os.makedirs(path)
+        fig = plot_net_predictions_without_ground_truth(images, masks, img_names, images.shape[0])
+        # Sauvegarde de la figure comme image
+        fig.savefig(os.path.join(path, str(i) + ".png"))
+        plt.close(fig)
+
+    printProgressBar(total, total, done="[Inference] Segmentation Done !")
 
 class MaskToTensor(object):
     def __call__(self, img):
