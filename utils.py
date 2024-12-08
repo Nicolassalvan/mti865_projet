@@ -170,11 +170,10 @@ def inference(net, img_batch, modelName, epoch):
     return losses.mean()
 
 def inferenceTeacher(net, img_batch, modelName, epoch, device):
-    total = len(img_batch)
-    print("nb images à traiter ", total)
+    print("img batch : ", len(img_batch))
     net.eval() #se mettre en mode evaluation 
+    total = len(img_batch)
 
-    softMax = nn.Softmax().cuda()
 
     for i, data in enumerate(img_batch):
         
@@ -182,19 +181,19 @@ def inferenceTeacher(net, img_batch, modelName, epoch, device):
         images = to_var(images).to(device)
 
         net_predictions = net(images)
-        pred_y = softMax(net_predictions)
-        masks = torch.argmax(pred_y, dim=1)
+        probs = torch.softmax(net_predictions, dim=1)
+        y_pred = torch.argmax(probs, dim=1)
 
         path = os.path.join("./Results/Images/", modelName, str(epoch)) #creation chemin de sauvegarde
         
         if not os.path.exists(path):
             os.makedirs(path)
-        fig = plot_net_predictions_without_ground_truth(images, masks, img_names, images.shape[0])
+        fig = plot_net_predictions_without_ground_truth(images, y_pred, img_names, len(images))
         # Sauvegarde de la figure comme image
         fig.savefig(os.path.join(path, str(i) + ".png"))
         plt.close(fig)
 
-    printProgressBar(total, total, done="[Inference] Segmentation Done !")
+    printProgressBar(total, total, done="[Inference] Teacher Inference Done !")
 
 class MaskToTensor(object):
     def __call__(self, img):

@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 
 
 def make_dataset(root, mode):
-    assert mode in ['train', 'selfTrain', 'val', 'test']
+    assert mode in ['train', 'teacherTrain', 'val', 'test']
     items = []
 
     if mode == 'train':
@@ -35,7 +35,7 @@ def make_dataset(root, mode):
             item = (os.path.join(train_img_path, it_im), os.path.join(train_mask_path, it_gt))
             items.append(item)
 
-    elif mode == 'selfTrain' :
+    elif mode == 'teacherTrain' :
         train_img_path = os.path.join(root, 'train', 'Img-Unlabeled')
         unlabeled_images = os.listdir(train_img_path)
         unlabeled_images.sort()
