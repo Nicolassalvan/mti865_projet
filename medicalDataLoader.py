@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 
 
 def make_dataset(root, mode):
-    assert mode in ['train', 'teacherTrain', 'val', 'test']
+    assert mode in ['train', 'unlabeledEval', 'unlabeledTrain', 'val', 'test']
     items = []
 
     if mode == 'train':
@@ -35,13 +35,30 @@ def make_dataset(root, mode):
             item = (os.path.join(train_img_path, it_im), os.path.join(train_mask_path, it_gt))
             items.append(item)
 
-    elif mode == 'teacherTrain' :
+    elif mode == 'unlabeledEval' : #when we use teacher to make predictions on unlabeled images 
         train_img_path = os.path.join(root, 'train', 'Img-Unlabeled')
         unlabeled_images = os.listdir(train_img_path)
         unlabeled_images.sort()
 
         for it_im in unlabeled_images:
             item = (os.path.join(train_img_path, it_im), None)  # pas de masque pour le moment
+            items.append(item)
+
+    elif mode == 'unlabeledTrain': #train with unlabeled images with pseudo-labels
+        train_img_path = os.path.join(root, 'train', 'Img-Unlabeled')
+        train_mask_path = os.path.join(root, 'train', 'Img-UnlabeledPredictions')
+
+        if not os.path.exists(train_mask_path):
+            raise FileNotFoundError(f"Le chemin des masques '{train_mask_path}' n'existe pas.")
+
+        images = os.listdir(train_img_path)
+        labels = os.listdir(train_mask_path)
+
+        images.sort()
+        labels.sort()
+
+        for it_im, it_gt in zip(images, labels):
+            item = (os.path.join(train_img_path, it_im), os.path.join(train_mask_path, it_gt))
             items.append(item)
 
 

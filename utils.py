@@ -85,15 +85,17 @@ def plot_net_predictions(imgs, true_masks, masks_pred, batch_size):
 
 def plot_net_predictions_without_ground_truth(imgs, masks_pred, img_names, batch_size):
 
-    fig, ax = plt.subplots(3, batch_size, figsize=(20, 15))
+    fig, ax = plt.subplots(2, batch_size, figsize=(20, 15))
 
     for i in range(batch_size):
 
         img = np.transpose(imgs[i].cpu().detach().numpy(), (1, 2, 0))
         mask_pred = masks_pred[i].cpu().detach().numpy()
+        
 
         img_name = os.path.basename(img_names[i])  # path image
         img_name = os.path.splitext(img_name)[0] #only image name
+        
 
         ax[0, i].imshow(img) #image d'entrée 
         ax[0, i].set_title("Input Image " + img_name)
@@ -170,7 +172,7 @@ def inference(net, img_batch, modelName, epoch):
     return losses.mean()
 
 def inferenceTeacher(net, img_batch, modelName, epoch, device):
-    print("img batch : ", len(img_batch))
+
     net.eval() #se mettre en mode evaluation 
     total = len(img_batch)
 
@@ -184,13 +186,25 @@ def inferenceTeacher(net, img_batch, modelName, epoch, device):
         probs = torch.softmax(net_predictions, dim=1)
         y_pred = torch.argmax(probs, dim=1)
 
+        # Sauvegarde image prédite vs image de base dans Results/Images/TeacherUnlabeledPredictions
         path = os.path.join("./Results/Images/", modelName, str(epoch)) #creation chemin de sauvegarde
-        
         if not os.path.exists(path):
             os.makedirs(path)
         fig = plot_net_predictions_without_ground_truth(images, y_pred, img_names, len(images))
-        # Sauvegarde de la figure comme image
         fig.savefig(os.path.join(path, str(i) + ".png"))
+
+        #Sauvegarde image prédite dans Data/train/Img-UnlabeledPredictions pour s'en servir comme data
+        save_folder = os.path.join("./Data/train/Img-UnlabeledPredictions/")
+        if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
+        for j in range(len(images)) :
+            mask_pred = y_pred[j].cpu().detach().numpy() #get predicted image
+            img_name = os.path.basename(img_names[j])  # extrait le nom du fichier
+            img_name = os.path.splitext(img_name)[0]  # retire l'extension
+            save_path = os.path.join(save_folder, f"{img_name}.png")
+            plt.imsave(save_path, mask_pred, cmap='gray')
+               
+       
         plt.close(fig)
 
     printProgressBar(total, total, done="[Inference] Teacher Inference Done !")
