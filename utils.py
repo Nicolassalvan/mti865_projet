@@ -23,18 +23,13 @@ from torchmetrics.functional.classification import binary_jaccard_index
 
 
 labels = {0: "Background", 1: "Foreground"}
-# LABEL_TO_COLOR = {
-#     0: [0, 0, 0], # Background
-#     1: [67, 67, 67], # Right ventricle (RV)
-#     2: [154, 154, 154], # Myocardium (MYO)
-#     3: [255, 255, 255] # Left ventricle (LV)
-# }
 LABEL_TO_COLOR = {
     0: [0, 0, 0], # Background
-    1: [255, 0, 0], # Right ventricle (RV)
-    2: [0, 255, 0], # Myocardium (MYO)
-    3: [0, 0, 255] # Left ventricle (LV)
+    1: [67, 67, 67], # Right ventricle (RV)
+    2: [154, 154, 154], # Myocardium (MYO)
+    3: [255, 255, 255] # Left ventricle (LV)
 }
+
 
 
 def compute_dsc(pred, gt):
@@ -48,18 +43,6 @@ def compute_dsc(pred, gt):
     dsc = np.asarray(dsc_all)
 
     return dsc.mean()
-
-
-# def compute_dsc_dataset(model, dataloader):
-#     # IOU over the entire dataset for each class
-#     dsc_class=list()
-#     # Set device depending on the availability of GPU
-#     if torch.cuda.is_available():
-#         device = torch.device("cuda")
-#     elif torch.mps.is_available():  # Apple M-series of chips
-#         device = torch.device("mps")
-#     else:
-
 
 
 # Inspiré de https://github.com/IvLabs/stagewise-knowledge-distillation/issues/12
@@ -282,21 +265,6 @@ def dice_score_class(model,dataloader):
     nb_it=0
     for idx, data in enumerate(dataloader):
         images, labels, img_names = data
-        # print('Image batch dimensions: ', images.size())
-        # print('Mask batch dimensions: ', labels.size())
-        
-        # Show first image and mask
-        # plt.figure()
-        # plt.subplot(1,2,1)
-        # plt.imshow(images[0,0,:,:], cmap='gray')
-        # plt.title('Image')
-        # plt.axis('off')
-        # plt.subplot(1,2,2)
-        # plt.imshow(labels[0,0,:,:], cmap='gray')
-        # plt.title('Mask')
-        # plt.axis('off')
-        # plt.show()
-
         labels = to_var(labels).to(device)
         images = to_var(images).to(device)
 
@@ -306,104 +274,25 @@ def dice_score_class(model,dataloader):
 
         segmentation_classes = getTargetSegmentation(labels)
         dice_target = F.one_hot(segmentation_classes, num_classes = num_classes).permute(0,3,1,2).contiguous()
-        # print ("dice_target.size()=",dice_target.size())
-        # print ("net_predictions.size()=",net_predictions.size())
         for i_batch in range (dice_target.shape[0]):
             #Show first image and mask
             for classe in range (num_classes):
                 # Calculate the intersection and denominator parts for the Dice coefficient
-                # print ("net_predictions[i_batch][classe].size()=",net_predictions[i_batch][classe].size())
-                #net_predictions[i_batch][classe]=net_predictions[i_batch][classe].contiguous().view(net_predictions[i_batch][classe].shape[0], -1)
-                #print("net_predictions[i_batch][classe].size()=",net_predictions[i_batch][classe].size())
-                #print("net_predictions[i_batch][classe].shape[0]=",net_predictions[i_batch][classe].shape[0])
-                intersect = torch.sum(torch.mul(net_predictions[i_batch][classe], dice_target[i_batch][classe]), dim=(0,1)) + smooth
-                intersect2 = torch.sum(torch.mul(dice_target[i_batch][classe], dice_target[i_batch][classe]), dim=(0,1))
                 intersect3 = torch.sum(torch.mul(probs[i_batch][classe], dice_target[i_batch][classe]), dim=(0,1))+ smooth
-                if nb_it==0 and classe==1:
-                    # print("intersect2=",intersect2)
-                    # print("probs[i_batch][classe].sum()=",torch.sum(probs[i_batch][classe],dim=(0,1)))
-                    # print("net_predictions[i_batch][classe].size()=",net_predictions[i_batch][classe].size())
-                    #print("net_predictions[i_batch][classe]=",net_predictions[i_batch][classe])
-                    #print("dice_target[i_batch][classe]=",dice_target[i_batch][classe])
-                    #a=torch.argmax(y_pred[i_batch,classe,:,:], 0).detach().cpu().squeeze()
-                    b=y_pred[i_batch][classe]
-                    c=probs[i_batch][classe]
-                    #print("c.size()=",c)
-                if nb_it==0 and classe==1:
-                    d=0
-                    # print("intersect=",intersect)
-                    # print("intersect3=",intersect3)
-                    # print("dice_target[i_batch][classe]=",torch.sum(dice_target[i_batch][classe],dim=(0,1)))
-                    # print("probs[i_batch][classe]=",torch.sum(probs[i_batch][classe].pow(2)))
-                    #print("torch.mul(probs[i_batch][classe],probs[i_batch][classe])=", torch.mul(probs[i_batch][classe],probs[i_batch][classe]))
-                    # A=torch.mul(probs[i_batch][classe],probs[i_batch][classe]) +torch.mul(dice_target[i_batch][classe],dice_target[i_batch][classe])
-                    #print("A=",torch.mul(probs[i_batch][classe],probs[i_batch][classe]) +torch.mul(dice_target[i_batch][classe],dice_target[i_batch][classe]))
-                    A=probs[i_batch][classe]
-                    nb_i_f=0
-                    nb_i_ff=0
-                    # for i in range (A.shape[0]):
-                    #     for j in range (A.shape[1]):
-                    #         if (A[i][j]>=0.09):
-                    #             nb_i_f+=1
-                    #         if (A[i][j]>=0.2):
-                    #             nb_i_ff+=1
-                    # print ("nb_i_f=",nb_i_f)
-                    # print ("nb_i_ff=",nb_i_ff)
-                    # print("A.size()=",A.size())
-                # print("torch.mul(net_predictions[i_batch][classe]=",torch.sum(torch.mul(net_predictions[i_batch][classe], dice_target[i_batch][classe])))
-                den = torch.sum(net_predictions[i_batch][classe].pow(2) + dice_target[i_batch][classe].pow(2), dim=(0,1)) + smooth
-                den2 = torch.sum(dice_target[i_batch][classe].pow(2) + dice_target[i_batch][classe].pow(2), dim=(0,1))
+                
                 den3 = torch.sum(probs[i_batch][classe].pow(2) + dice_target[i_batch][classe].pow(2), dim=(0,1))+ smooth
-                den4 = torch.sum(torch.mul(probs[i_batch][classe],probs[i_batch][classe]) + torch.mul(dice_target[i_batch][classe],dice_target[i_batch][classe]), dim=(0,1))+ smooth
                 
-                if nb_it==0 and classe==1:
-                    d=0
-                    # print("den=",den)
-                    # print("den2=",den2)
-                    #print ("den3=",den3)
-                    # print ("den4=",den4.item())
-                
-                dice_class2=(2.0 * (intersect2 / den2))
                 dice_class3=(2.0 * (intersect3 / den3))
-                dice_class4=(2.0 * (intersect3 / den4))
-                dice_class[classe]+= dice_class3.item()#(2.0 * (intersect / den))
-                if nb_it==1 and classe==1:
-                    d=0
-                    print("dice_class[",classe,"]=",dice_class[classe])
-                    # print("dice_class2[",classe,"]=",dice_class2)
-                    # print("dice_class3[",classe,"]=",dice_class3)
+
+                dice_class[classe]+= dice_class3.item()
             nb_it+=1
             
-        # plt.figure()
-        # plt.subplot(1,3,1)
-        # plt.imshow(images[0,0,:,:], cmap='gray')
-        # plt.title('Image')
-        # plt.axis('off')
-        # plt.subplot(1,3,2)
-        # plt.imshow(labels[0,0,:,:], cmap='gray')
-        # plt.title('Mask')
-        # plt.axis('off')
-        # print("plot_pred.size 1=",net_predictions.size())
-        # plot_pred=torch.argmax(net_predictions,axis=0).squeeze(1)
-        # print("plot_pred.size=",plot_pred.size())
-        # plt.subplot(1,3,3)
-        # plt.imshow(torch.argmax(net_predictions[0,:,:,:], 0).detach().cpu().squeeze(), cmap='gray')
-        # plt.title('Pred')
-        # plt.axis('off')
-        # plt.show()
-        #Flatten the tensors to 2D arrays for easier computation
-        # net_predictions = net_predictions.contiguous().view(net_predictions.shape[1], -1)
-        # dice_target = dice_target.contiguous().view(dice_target.shape[1], -1)
-        # print ("dice_target.size() 2=",dice_target.size())
-        # print ("net_predictions.size() 2=",net_predictions.size())
-    
-    # print ("nb_it=", nb_it)
     for classe in range (num_classes):
         dice_class[classe]=dice_class[classe]/nb_it
     return dice_class
 
 
-def dice_score_class2(model,dataloader):
+def dice_score_class2(model,dataloader): # DICE score with dc from medpy
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -431,18 +320,7 @@ def dice_score_class2(model,dataloader):
             #Show first image and mask
             for classe in range (num_classes):
                 # Calculate the intersection and denominator parts for the Dice coefficient
-                # dice_class[classe]+= dc(probs[i_batch][classe], dice_target[i_batch][classe])
-                # dice_class[classe]+= dc(probs[i_batch][classe].detach().numpy(), dice_target[i_batch][classe].detach().numpy())
-                # dice_class[classe]+= dc(probs[i_batch][classe].cpu().data.numpy(), dice_target[i_batch][classe].cpu().data.numpy())
                 dice_class[classe]+= dc(probs[i_batch][classe].data.numpy(), dice_target[i_batch][classe].data.numpy())
-                if (nb_it==0 and classe==1):
-                    d=0
-                    # print ("probs[i_batch][classe].data.numpy()=",probs[i_batch][classe].data.numpy())
-                    # print ("dice_target[i_batch][classe].data.numpy()=",dice_target[i_batch][classe].data.numpy())
-                    # print ("dice_target[i_batch][classe].view(dice_target[i_batch][classe].shape[1], -1).float().size()=",dice_target[i_batch][classe].view(dice_target[i_batch][classe].shape[1], -1).float().size())
-                if nb_it==1 and classe==1:
-                    d=0
-                    print ("dice_class 2[",classe,"]=",dice_class[classe])
             nb_it+=1
 
     for classe in range (num_classes):
@@ -450,7 +328,7 @@ def dice_score_class2(model,dataloader):
     return dice_class
 
 
-def jaccard_score_class(model,dataloader):
+def jaccard_score_class(model,dataloader): #Jaccard (or IOU) score
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -464,21 +342,6 @@ def jaccard_score_class(model,dataloader):
     nb_it=0
     for idx, data in enumerate(dataloader):
         images, labels, img_names = data
-        # print('Image batch dimensions: ', images.size())
-        # print('Mask batch dimensions: ', labels.size())
-        
-        # Show first image and mask
-        # plt.figure()
-        # plt.subplot(1,2,1)
-        # plt.imshow(images[0,0,:,:], cmap='gray')
-        # plt.title('Image')
-        # plt.axis('off')
-        # plt.subplot(1,2,2)
-        # plt.imshow(labels[0,0,:,:], cmap='gray')
-        # plt.title('Mask')
-        # plt.axis('off')
-        # plt.show()
-
         labels = to_var(labels).to(device)
         images = to_var(images).to(device)
 
@@ -488,105 +351,25 @@ def jaccard_score_class(model,dataloader):
 
         segmentation_classes = getTargetSegmentation(labels)
         iou_target = F.one_hot(segmentation_classes, num_classes = num_classes).permute(0,3,1,2).contiguous()
-        # print ("dice_target.size()=",dice_target.size())
-        # print ("net_predictions.size()=",net_predictions.size())
+
         for i_batch in range (iou_target.shape[0]):
             #Show first image and mask
             for classe in range (num_classes):
-                # Calculate the intersection and denominator parts for the Dice coefficient
-                # print ("net_predictions[i_batch][classe].size()=",net_predictions[i_batch][classe].size())
-                #net_predictions[i_batch][classe]=net_predictions[i_batch][classe].contiguous().view(net_predictions[i_batch][classe].shape[0], -1)
-                #print("net_predictions[i_batch][classe].size()=",net_predictions[i_batch][classe].size())
-                #print("net_predictions[i_batch][classe].shape[0]=",net_predictions[i_batch][classe].shape[0])
-                intersect = torch.sum(torch.mul(net_predictions[i_batch][classe], iou_target[i_batch][classe]), dim=(0,1)) + smooth
-                intersect2 = torch.sum(torch.mul(iou_target[i_batch][classe], iou_target[i_batch][classe]), dim=(0,1))
+                # Calculate the intersection and denominator parts for the Jaccard (or IOU) coefficient
                 intersect3 = torch.sum(torch.mul(probs[i_batch][classe], iou_target[i_batch][classe]), dim=(0,1))+ smooth
-                if nb_it==0 and classe==1:
-                    # print("intersect2=",intersect2)
-                    # print("probs[i_batch][classe].sum()=",torch.sum(probs[i_batch][classe],dim=(0,1)))
-                    # print("net_predictions[i_batch][classe].size()=",net_predictions[i_batch][classe].size())
-                    #print("net_predictions[i_batch][classe]=",net_predictions[i_batch][classe])
-                    #print("dice_target[i_batch][classe]=",dice_target[i_batch][classe])
-                    #a=torch.argmax(y_pred[i_batch,classe,:,:], 0).detach().cpu().squeeze()
-                    b=y_pred[i_batch][classe]
-                    c=probs[i_batch][classe]
-                    #print("c.size()=",c)
-                if nb_it==0 and classe==1:
-                    d=0
-                    # print("intersect=",intersect)
-                    # print("intersect3=",intersect3)
-                    # print("dice_target[i_batch][classe]=",torch.sum(dice_target[i_batch][classe],dim=(0,1)))
-                    # print("probs[i_batch][classe]=",torch.sum(probs[i_batch][classe].pow(2)))
-                    #print("torch.mul(probs[i_batch][classe],probs[i_batch][classe])=", torch.mul(probs[i_batch][classe],probs[i_batch][classe]))
-                    # A=torch.mul(probs[i_batch][classe],probs[i_batch][classe]) +torch.mul(dice_target[i_batch][classe],dice_target[i_batch][classe])
-                    #print("A=",torch.mul(probs[i_batch][classe],probs[i_batch][classe]) +torch.mul(dice_target[i_batch][classe],dice_target[i_batch][classe]))
-                    A=probs[i_batch][classe]
-                    nb_i_f=0
-                    nb_i_ff=0
-                    # for i in range (A.shape[0]):
-                    #     for j in range (A.shape[1]):
-                    #         if (A[i][j]>=0.09):
-                    #             nb_i_f+=1
-                    #         if (A[i][j]>=0.2):
-                    #             nb_i_ff+=1
-                    # print ("nb_i_f=",nb_i_f)
-                    # print ("nb_i_ff=",nb_i_ff)
-                    # print("A.size()=",A.size())
-                # print("torch.mul(net_predictions[i_batch][classe]=",torch.sum(torch.mul(net_predictions[i_batch][classe], dice_target[i_batch][classe])))
-                den = torch.sum(net_predictions[i_batch][classe].pow(2) + iou_target[i_batch][classe].pow(2), dim=(0,1)) + smooth
-                den2 = torch.sum(iou_target[i_batch][classe].pow(2) + iou_target[i_batch][classe].pow(2), dim=(0,1))
-                den3 = torch.sum(probs[i_batch][classe].pow(2) + iou_target[i_batch][classe].pow(2), dim=(0,1))+ smooth
-                den4 = torch.sum(torch.mul(probs[i_batch][classe],probs[i_batch][classe]) + torch.mul(iou_target[i_batch][classe],iou_target[i_batch][classe]), dim=(0,1))+ smooth
-                den5=den3-intersect3
-                if nb_it==0 and classe==1:
-                    d=0
-                    # print("den=",den)
-                    # print("den2=",den2)
-                    #print ("den3=",den3)
-                    # print ("den4=",den4)
                 
-                dice_class2=(2.0 * (intersect2 / den2))
-                dice_class3=(2.0 * (intersect3 / den3))
-                dice_class4=(2.0 * (intersect3 / den4))
-                print("pareil ?",dice_class4==dice_class3)
+                den3 = torch.sum(probs[i_batch][classe].pow(2) + iou_target[i_batch][classe].pow(2), dim=(0,1))+ smooth
+                den5=den3-intersect3
+
                 iou_c=(intersect3 / den5)
-                iou_class[classe]+= iou_c.item()#(2.0 * (intersect / den))
-                if nb_it==1 and classe==1:
-                    d=0
-                    print("jaccard1[",classe,"]=",iou_class[classe])
-                    # print("dice_class2[",classe,"]=",dice_class2)
-                    # print("dice_class3[",classe,"]=",dice_class3)
+                iou_class[classe]+= iou_c.item()
             nb_it+=1
             
-        # plt.figure()
-        # plt.subplot(1,3,1)
-        # plt.imshow(images[0,0,:,:], cmap='gray')
-        # plt.title('Image')
-        # plt.axis('off')
-        # plt.subplot(1,3,2)
-        # plt.imshow(labels[0,0,:,:], cmap='gray')
-        # plt.title('Mask')
-        # plt.axis('off')
-        # print("plot_pred.size 1=",net_predictions.size())
-        # plot_pred=torch.argmax(net_predictions,axis=0).squeeze(1)
-        # print("plot_pred.size=",plot_pred.size())
-        # plt.subplot(1,3,3)
-        # plt.imshow(torch.argmax(net_predictions[0,:,:,:], 0).detach().cpu().squeeze(), cmap='gray')
-        # plt.title('Pred')
-        # plt.axis('off')
-        # plt.show()
-        #Flatten the tensors to 2D arrays for easier computation
-        # net_predictions = net_predictions.contiguous().view(net_predictions.shape[1], -1)
-        # dice_target = dice_target.contiguous().view(dice_target.shape[1], -1)
-        # print ("dice_target.size() 2=",dice_target.size())
-        # print ("net_predictions.size() 2=",net_predictions.size())
-    
-    # print ("nb_it=", nb_it)
     for classe in range (num_classes):
         iou_class[classe]=iou_class[classe]/nb_it
     return iou_class
 
-def jaccard_score_class2(model,dataloader):
+def jaccard_score_class2(model,dataloader): #Jaccard (or IOU) score with binary jaccard coeff from torchmetrics
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -614,11 +397,7 @@ def jaccard_score_class2(model,dataloader):
             #Show first image and mask
             for classe in range (num_classes):
                 # Calculate the intersection and denominator parts for the Dice coefficient
-                # dice_class[classe]+= dc(probs[i_batch][classe], dice_target[i_batch][classe])
                 jaccard[classe]+= binary_jaccard_index(probs[i_batch][classe], jaccard_target[i_batch][classe],0.15).item()
-                if nb_it==1 and classe==1:
-                    d=0
-                    print("jaccard2[",classe,"]=",jaccard[classe])
             nb_it+=1
 
     for classe in range (num_classes):
@@ -626,7 +405,7 @@ def jaccard_score_class2(model,dataloader):
     return jaccard
 
 
-def jaccard_score_class3(model,dataloader):
+def jaccard_score_class3(model,dataloader):  #Jaccard (or IOU) score with jc from medpy
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -654,29 +433,7 @@ def jaccard_score_class3(model,dataloader):
             #Show first image and mask
             for classe in range (num_classes):
                 # Calculate the intersection and denominator parts for the Dice coefficient
-                # dice_class[classe]+= dc(probs[i_batch][classe], dice_target[i_batch][classe])
                 jaccard[classe]+= jc(probs[i_batch][classe].data.numpy(), jaccard_target[i_batch][classe].data.numpy())
-                if nb_it==3 and classe==1:
-                    d=0
-                    print("jaccard3[",classe,"]=",jaccard[classe])
-                if nb_it==3:
-                    plt.figure()
-                    plt.subplot(1,3,1)
-                    plt.imshow(images[i_batch,0,:,:], cmap='gray')
-                    plt.title('Image')
-                    plt.axis('off')
-                    plt.subplot(1,3,2)
-                    plt.imshow(labels[i_batch,0,:,:], cmap='gray')
-                    plt.title('Mask')
-                    plt.axis('off')
-                    print("plot_pred.size 1=",net_predictions.size())
-                    plot_pred=torch.argmax(net_predictions,axis=0).squeeze(1)
-                    print("plot_pred.size=",plot_pred.size())
-                    plt.subplot(1,3,3)
-                    plt.imshow(torch.argmax(net_predictions[i_batch,:,:,:], 0).detach().cpu().squeeze(), cmap='gray')
-                    plt.title('Pred')
-                    plt.axis('off')
-                    plt.show()
             nb_it+=1
 
     for classe in range (num_classes):
