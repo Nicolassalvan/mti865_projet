@@ -515,3 +515,56 @@ def jaccard_score_class8(model,dataloader):
     for classe in range (num_classes):
         jaccard[classe]=jaccard[classe]/nb_it
     return jaccard
+
+
+
+# Fonction pour la métrique HSD (disatnce Hausdorff) en utilisant hd from medpy 
+def hsd_score_class(model,dataloader):  
+    # Set device depending on the availability of GPU
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.mps.is_available():  # Apple M-series of chips
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    hsd=[0,0,0,0]
+    num_classes=4
+    smooth=1e-6
+    nb_it=0
+    for idx, data in enumerate(dataloader):
+        images, labels, _ = data
+
+        labels = to_var(labels).to(device)
+        images = to_var(images).to(device)
+
+        net_predictions = model(images)
+        probs = torch.softmax(net_predictions, dim=1)
+
+        segmentation_classes = getTargetSegmentation(labels)
+        hsd_target = F.one_hot(segmentation_classes, num_classes = num_classes).permute(0,3,1,2).contiguous()
+
+        for i_batch in range (hsd_target.shape[0]):
+            #Show first image and mask
+            y_pred_batch = torch.argmax(probs[i_batch], dim=0)
+            hsd_target_argmax = torch.argmax(hsd_target, dim=1)
+            _hd=0
+            for classe in range (num_classes):
+                # Calculate the intersection and denominator parts for the Jaccard
+                pred_class = np.zeros(y_pred_batch.shape)
+                idx_pred = np.where(y_pred_batch == classe)
+                pred_class[idx_pred] = 1
+
+                idx_target = np.where(hsd_target[i_batch][classe] == classe)
+                # vérifie si la target pour chaque classe contient bien un objet (des 1 et pas que des 0)
+                if len(idx_target[0])!=0 and len(idx_target[1])!=0 and len(idx_pred[0])!=0 and len(idx_pred[1])!=0 :
+                    _hd=hd(pred_class, hsd_target[i_batch][classe].data.numpy())
+                    hsd[classe]+= _hd
+            nb_it+=1
+
+    for classe in range (num_classes):
+        hsd[classe]=hsd[classe]/nb_it
+
+    # La distance de Hausdorff symétrique entre les objets prédits et les vrais objets. 
+    # L'unité de distance est la même pour l'espacement des éléments dans chaque dimension, 
+    # qui est généralement donné en mm.
+    return hsd
