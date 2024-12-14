@@ -133,6 +133,7 @@ def run_training(
         "./data/", batch_size, batch_size_val
     )
 
+    early_terminator = utils.EarlyTermination(max_epochs_without_improvement=7, min_delta=0.01)
     ## FOR EACH EPOCH
     for epoch in range(TOTAL_EPOCHS):
         net.train()
@@ -275,6 +276,7 @@ def run_training(
             torch.save(
                 net.state_dict(), "./models/" + modelName + "/" + str(epoch) + "_Epoch"
             )
+            np.save(os.path.join(directory, "Losses.npy"), train_losses)
 
         printProgressBar(
             num_batches,
@@ -284,12 +286,11 @@ def run_training(
             ),
         )
 
-        # Check if loss has not decreased for 10 epochs
-        # if epoch > 10 and val_losses[-1] > val_losses[-10]:
-        #     print("Stopping early as validation loss has not decreased for 10 epochs")
-        #     break
+        # Early stopping
+        if early_terminator.should_terminate(val_loss):
+            print("Stopping early as validation loss has not decreased within threshold")
+            break
 
-        np.save(os.path.join(directory, "Losses.npy"), train_losses)
     writer.flush()  # Flush the writer to ensure that all the data is written to disk
 
     # Return best overall loss as comparison metric for grid search
@@ -364,6 +365,12 @@ def perform_gridsearch():
     print(f"Grid search completed. Best run: {best_run}")
     print(f"Run history: {run_history}")
 
+def perform_random_search():
+    param_ranges = {
+        "batch_size": [4, 8, 16],
+        "lr": [0.01, 0.001],
+        "weight_decay": [1e-5, 1e-6]
+    }
 
 if __name__ == "__main__":
     # run_training(writer)

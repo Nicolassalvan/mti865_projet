@@ -158,3 +158,20 @@ def inference(net, img_batch, modelName, epoch):
 class MaskToTensor(object):
     def __call__(self, img):
         return torch.from_numpy(np.array(img, dtype=np.int32)).float()
+
+class EarlyTermination:
+    def __init__(self, max_epochs_without_improvement=1, min_delta=0):
+        self.max_epochs_without_improvement = max_epochs_without_improvement
+        self.min_delta = min_delta
+        self.counter = 0
+        self.min_val_loss = float('inf') # Set to infinity so that the first validation loss is always lower
+
+    def should_terminate(self, validation_loss):
+        if validation_loss < self.min_val_loss:
+            self.min_val_loss = validation_loss
+            self.counter = 0
+        elif validation_loss > (self.min_val_loss + self.min_delta):
+            self.counter += 1
+            if self.counter >= self.max_epochs_without_improvement:
+                return True
+        return False
