@@ -18,7 +18,8 @@ from medpy.metric.binary import dc, hd, asd, assd, jc
 import scipy.spatial
 from torch import tensor
 from torchmetrics.functional.classification import binary_jaccard_index
-
+import sklearn.metrics
+import math
 # from scipy.spatial.distance import directed_hausdorff
 
 
@@ -45,211 +46,7 @@ def compute_dsc(pred, gt):
     return dsc.mean()
 
 
-# Inspiré de https://github.com/IvLabs/stagewise-knowledge-distillation/issues/12
-# et https://github.com/IvLabs/stagewise-knowledge-distillation/blob/master/semantic_segmentation/utils/metrics.py
 
-def mean_iou(model, dataloader):
-    # IOU over the entire dataset for each class
-    ious_class=list()
-    # Set device depending on the availability of GPU
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif torch.mps.is_available():  # Apple M-series of chips
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
-    nb_im=0
-
-    num_classes= 4
-    for sem_class in range(num_classes):
-        class_intersection=0
-        class_union=0
-        for idx, data in enumerate(dataloader):
-            ## GET IMAGES, LABELS and IMG NAMES
-            images, labels, img_names = data
-            ### From numpy to torch variables
-            labels = to_var(labels).to(device)
-            images = to_var(images).to(device)
-            for i in range(images.shape[0]):
-                #print("images.len()=",images.len())
-                prediction = model(images)
-                prediction = F.softmax(prediction, dim=1)
-                prediction = torch.argmax(prediction, axis=1).squeeze(1)
-
-                # probs = torch.softmax(prediction, dim=1)
-                # y_pred = torch.argmax(probs, dim=1)
-
-                prediction = prediction.view(-1)
-                labels = labels.view(-1)
-                pred_inds = (prediction == sem_class)
-                target_inds = (labels == sem_class)
-                if target_inds.long().sum().item() == 0:
-                    # intersection_now = float('nan')
-                    union_now1 = float('nan')
-                else: 
-                    intersection_now = (pred_inds[target_inds]).long().sum().item()
-                    union_now = pred_inds.long().sum().item() + target_inds.long().sum().item() - intersection_now
-                # Compute the total intersection and total union for each class over the entire dataset
-                class_intersection+= intersection_now
-                class_union+=union_now
-                nb_im+=1
-        print("nb_im=",nb_im)
-        iou_now = float(class_intersection) / float(class_union)
-        ious_class.append(iou_now)
-
-    return (sum(ious_class) / len(ious_class)) #return mean of iou for each class
-
-def mIOU(label, pred, num_classes=4):
-    pred = F.softmax(pred, dim=1)              
-    pred = torch.argmax(pred, dim=1).squeeze(1)
-    iou_list = list()
-    present_iou_list = list()
-
-    pred = pred.view(-1)
-    label = label.view(-1)
-    # Note: Following for loop goes from 0 to (num_classes-1)
-    # and ignore_index is num_classes, thus ignore_index is
-    # not considered in computation of IoU.
-    for sem_class in range(num_classes):
-        pred_inds = (pred == sem_class)
-        target_inds = (label == sem_class)
-        if target_inds.long().sum().item() == 0:
-            iou_now = float('nan')
-        else: 
-            intersection_now = (pred_inds[target_inds]).long().sum().item()
-            union_now = pred_inds.long().sum().item() + target_inds.long().sum().item() - intersection_now
-            iou_now = float(intersection_now) / float(union_now)
-            present_iou_list.append(iou_now)
-        iou_list.append(iou_now)
-    return np.mean(present_iou_list)
-
-def mean_dsc(model, dataloader):
-    # IOU over the entire dataset for each class
-    dice_class=list()
-    # Set device depending on the availability of GPU
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif torch.mps.is_available():  # Apple M-series of chips
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
-    nb_im=0
-    smooth=1e-6
-
-    num_classes= 4
-    for sem_class in range(num_classes):
-        class_intersection=0
-        class_denom=0
-        for idx, data in enumerate(dataloader):
-            ## GET IMAGES, LABELS and IMG NAMES
-            images, labels, img_names = data
-            for i in enumerate(images):
-                #print("images.len()=",images.len())
-                ### From numpy to torch variables
-                labels = to_var(labels).to(device)
-                images = to_var(images).to(device)
-
-                prediction = model(images)
-                prediction = F.softmax(prediction, dim=1)
-                prediction = torch.argmax(prediction, axis=1).squeeze(1)
-
-                # probs = torch.softmax(prediction, dim=1)
-                # y_pred = torch.argmax(probs, dim=1)
-
-                prediction = prediction.view(-1)
-                labels = labels.view(-1)
-                pred_inds = (prediction == sem_class)
-                target_inds = (labels == sem_class)
-                # print("target_inds size=",target_inds.size())
-                # print("pred_inds size=",pred_inds.size())
-
-                if target_inds.long().sum().item() == 0:
-                    # intersection = float('nan')
-                    denom1 = float('nan')
-                else: 
-                    intersection = (pred_inds[target_inds]).long().sum().item()
-                    denom = pred_inds.long().sum().item() + target_inds.long().sum().item()
-                # Compute the total intersection and total union for each class over the entire dataset
-                class_intersection+= intersection
-                class_denom+=denom
-                nb_im+=1
-        print("nb_im=",nb_im)
-        dice = (float(2 * class_intersection) + smooth) / (float(class_denom) + smooth)
-        dice_class.append(dice)
-
-    return (sum(dice_class) / len(dice_class)) #return mean of iou for each class
-
-
-def dice_coeff(mask1, mask2, smooth=1e-6, num_classes=4):
-    dice = 0
-    for sem_class in range(num_classes):
-        # mask1 = mask1.view(-1)
-        # mask2 = mask2.view(-1)
-        print ("mask1.size=",mask1.size())
-        print ("mask2.size=",mask2.size())
-        pred_inds = (mask2 == sem_class)
-        target_inds = (mask1 == sem_class)
-        intersection = (pred_inds[target_inds]).long().sum().item()
-        denom = pred_inds.long().sum().item() + target_inds.long().sum().item()
-        dice += (float(2 * intersection) + smooth) / (float(denom) + smooth)
-    return dice / num_classes
-
-def iou(mask1, mask2, num_classes=4, smooth=1e-6):
-    avg_iou = 0
-    for sem_class in range(num_classes):
-        pred_inds = (mask2 == sem_class)
-        # print("pred_inds=",pred_inds)
-        # print("pred_inds size=",pred_inds.size())
-        target_inds = (mask1 == sem_class)
-        # print("target_inds size=",target_inds.size())
-        
-        # print("target_inds=",target_inds)
-        if target_inds.long().sum().item() == 0:
-            # intersection = float('nan')
-            denom1 = float('nan')
-        else: 
-            intersection_now = (pred_inds[target_inds]).long().sum().item()
-            union_now = pred_inds.long().sum().item() + target_inds.long().sum().item() - intersection_now
-        avg_iou += (float(intersection_now + smooth) / float(union_now + smooth))
-    return (avg_iou / num_classes)
-
-def iou2(mask1, mask2, num_classes=4, smooth=1e-6):
-    # avg_iou = list()
-    avg_iou = 0
-    # mask1_new=mask1.type(torch.int)
-    # mask2_new=mask2.type(torch.int)
-    #print("mask1=",mask1)
-    # print("mask2=",mask2)
-    print("mask2.size=",mask2.size())
-    print("mask1.size=",mask1.size())
-    print("mask1.shape[0]=",mask1.shape[0])
-    # print("mask1.shape[1]=",mask1.shape[1])
-    # print("mask1.shape[2]=",mask1.shape[2])
-    # print("mask1.shape[3]=",mask1.shape[3])
-    # for i_batch in range (mask1.shape[0]):
-    #     for sem_class in range (mask1.shape[1]):
-    #         intersection = (mask1[i_batch,sem_class,:,:] & mask2[i_batch,sem_class,:,:]).float().sum((2,3))
-    #         union = (mask1[i_batch,sem_class,:,:] | mask2[i_batch,sem_class,:,:]).float().sum((2,3))
-    #         union_prev=(mask1 | mask2).float()
-    #         print("union=",union)
-    #         #print("union_prev=",union_prev)
-    #         #print("intersection=",intersection)
-    #         avg_iou [sem_class]+= (float(intersection + smooth) / float(union + smooth))
-    for i_batch in range (mask1.shape[0]):
-        # intersection = (mask1[i_batch,:,:] & mask2[i_batch,:,:]).float().sum((1,2))
-        # union = (mask1[i_batch,:,:] | mask2[i_batch,:,:]).float().sum((1,2))
-        print ("i_batch=",i_batch)
-        intersection = (mask1[i_batch] and mask2[i_batch]).float().sum((1,2))
-        union = (mask1[i_batch] or mask2[i_batch]).float().sum((1,2))
-        union_prev=(mask1 | mask2).float()
-        print("union=",union)
-        #print("union_prev=",union_prev)
-        #print("intersection=",intersection)
-        # avg_iou [sem_class]+= (float(intersection + smooth) / float(union + smooth))
-        avg_iou += (float(intersection + smooth) / float(union + smooth))
-    # for sem_class in range (mask1.shape[1]):
-    #     avg_iou [sem_class]=avg_iou [sem_class]/mask1.shape[0]
-    return avg_iou
 
 def dice_score_class(model,dataloader):
     # Set device depending on the availability of GPU
@@ -285,6 +82,9 @@ def dice_score_class(model,dataloader):
                 dice_class3=(2.0 * (intersect3 / den3))
 
                 dice_class[classe]+= dice_class3.item()
+                # if nb_it==0 and classe==0:
+                #     print("dice_class=",dice_class)
+                
             nb_it+=1
             
     for classe in range (num_classes):
@@ -321,8 +121,245 @@ def dice_score_class2(model,dataloader): # DICE score with dc from medpy
             for classe in range (num_classes):
                 # Calculate the intersection and denominator parts for the Dice coefficient
                 dice_class[classe]+= dc(probs[i_batch][classe].data.numpy(), dice_target[i_batch][classe].data.numpy())
+                # if nb_it==0 and classe==0:
+                #     print("dice_class2=",dice_class)
             nb_it+=1
 
+    for classe in range (num_classes):
+        dice_class[classe]=dice_class[classe]/nb_it
+    return dice_class
+
+
+def dice_score_class3(model,dataloader):
+    # Set device depending on the availability of GPU
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.mps.is_available():  # Apple M-series of chips
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    dice_class=[0,0,0,0]
+    num_classes=4
+    smooth=1e-6
+    nb_it=0
+    for idx, data in enumerate(dataloader):
+        images, labels, img_names = data
+        labels = to_var(labels).to(device)
+        images = to_var(images).to(device)
+
+        net_predictions = model(images)
+        probs = torch.softmax(net_predictions, dim=1)
+        y_pred = torch.argmax(probs, dim=1)
+
+        segmentation_classes = getTargetSegmentation(labels)
+        dice_target = F.one_hot(segmentation_classes, num_classes = num_classes).permute(0,3,1,2).contiguous()
+        
+        for i_batch in range (dice_target.shape[0]):
+            #Show first image and mask
+            y_pred_batch = torch.argmax(probs[i_batch], dim=0)
+            for classe in range (num_classes):
+                # Calculate the intersection and denominator parts for the Dice coefficient
+                pred_class = np.zeros(y_pred_batch.shape)
+                idx_pred = np.where(y_pred_batch == classe)
+                pred_class[idx_pred] = 1
+
+                target_class = np.zeros(dice_target[i_batch][classe].shape)
+                idx_target = np.where(dice_target[i_batch][classe] == 1)
+                target_class[idx_target] = 1
+                intersect3 = (pred_class*target_class).sum()+ smooth
+                # intersect3 = torch.sum(torch.mul(probs[i_batch][classe], dice_target[i_batch][classe]), dim=(0,1))+ smooth
+                
+                den3 = (((pred_class*pred_class).sum())+((target_class*target_class).sum()))+ smooth
+                # den3 = (((pred_class).sum())+((target_class).sum()))+ smooth
+                
+                dice_class3=(2.0 * (intersect3 / den3))
+                # if nb_it==0 and classe==0:
+                #     print("dice_class3=",dice_class3)
+
+                dice_class[classe]+= dice_class3
+            nb_it+=1
+            
+    for classe in range (num_classes):
+        dice_class[classe]=dice_class[classe]/nb_it
+    return dice_class
+
+def dice_score_class4(model,dataloader):
+    # Set device depending on the availability of GPU
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.mps.is_available():  # Apple M-series of chips
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    dice_class=[0,0,0,0]
+    num_classes=4
+    smooth=1e-6
+    nb_it=0
+    for idx, data in enumerate(dataloader):
+        images, labels, img_names = data
+        labels = to_var(labels).to(device)
+        images = to_var(images).to(device)
+
+        net_predictions = model(images)
+        probs = torch.softmax(net_predictions, dim=1)
+        y_pred = torch.argmax(probs, dim=1)
+
+        segmentation_classes = getTargetSegmentation(labels)
+        dice_target = F.one_hot(segmentation_classes, num_classes = num_classes).permute(0,3,1,2).contiguous()
+        
+        for i_batch in range (dice_target.shape[0]):
+            #Show first image and mask
+            y_pred_batch = torch.argmax(probs[i_batch], dim=0)
+            for classe in range (num_classes):
+                # Calculate the intersection and denominator parts for the Dice coefficient
+                pred_class = np.zeros(y_pred_batch.shape)
+                # idx_pred = np.where(y_pred_batch == classe)
+                # if nb_it==0 and classe==0:
+                    # print("idx_pred=",idx_pred)
+                    # print ("probs[i_batch][classe].size()=",probs[i_batch][classe].size())
+                    # print("probs[i_batch][classe][idx_pred]=",probs[i_batch][classe][idx_pred])
+                # pred_class[idx_pred] = 1
+
+                # print ("y_pred_batch.shape[0]=",y_pred_batch.shape[0])
+                # print ("y_pred_batch.shape[1]=",y_pred_batch.shape[1])
+                # print ("probs[i_batch][classe][i][j]= ",probs[i_batch][classe][0][0])
+                for i in range (y_pred_batch.shape[0]):
+                    for j in range (y_pred_batch.shape[1]):
+                        if (y_pred_batch[i][j] == classe):
+                            d=0
+                            pred_class[i][j] = probs[i_batch][classe][i][j].item()
+
+
+                intersect3 = (pred_class*dice_target[i_batch][classe].data.numpy()).sum()#+ smooth
+                # intersect3 = torch.sum(torch.mul(probs[i_batch][classe], dice_target[i_batch][classe]), dim=(0,1))+ smooth
+                
+                den3 = (((pred_class*pred_class).sum())+((dice_target[i_batch][classe].data.numpy()*dice_target[i_batch][classe].data.numpy()).sum()))#+ smooth
+                # den3 = (((pred_class).sum())+((target_class).sum()))+ smooth
+                
+                dice_class3=(2.0 * (intersect3 / den3))
+                # if nb_it==0 and classe==0:
+                #     print("dice_class4=",dice_class3)
+
+                if math.isnan(dice_class3): # utile seulement si on n'utilise pas de smooth dans intersect et den
+                    dice_class3=0
+
+                dice_class[classe]+= dice_class3
+            nb_it+=1
+            # print("nb_it=",nb_it)
+            
+    for classe in range (num_classes):
+        dice_class[classe]=dice_class[classe]/nb_it
+    return dice_class
+
+
+def dice_score_class5(model,dataloader):
+    # Set device depending on the availability of GPU
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.mps.is_available():  # Apple M-series of chips
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    dice_class=[0,0,0,0]
+    num_classes=4
+    smooth=1e-6
+    nb_it=0
+    for idx, data in enumerate(dataloader):
+        images, labels, img_names = data
+        labels = to_var(labels).to(device)
+        images = to_var(images).to(device)
+
+        net_predictions = model(images)
+        probs = torch.softmax(net_predictions, dim=1)
+        y_pred = torch.argmax(probs, dim=1)
+
+        segmentation_classes = getTargetSegmentation(labels)
+        dice_target = F.one_hot(segmentation_classes, num_classes = num_classes).permute(0,3,1,2).contiguous()
+        
+        for i_batch in range (dice_target.shape[0]):
+            #Show first image and mask
+            y_pred_batch = torch.argmax(probs[i_batch], dim=0)
+            for classe in range (num_classes):
+                # Calculate the intersection and denominator parts for the Dice coefficient
+                pred_class = np.zeros(y_pred_batch.shape)
+                idx_pred = np.where(y_pred_batch == classe)
+                pred_class[idx_pred] = 1
+
+
+                intersect3 = (pred_class*dice_target[i_batch][classe].data.numpy()).sum()#+ smooth
+                # intersect3 = torch.sum(torch.mul(probs[i_batch][classe], dice_target[i_batch][classe]), dim=(0,1))+ smooth
+                
+                den3 = (((pred_class*pred_class).sum())+((dice_target[i_batch][classe].data.numpy()*dice_target[i_batch][classe].data.numpy()).sum()))#+ smooth
+                # den3 = (((pred_class).sum())+((target_class).sum()))+ smooth
+                
+                dice_class3=(2.0 * (intersect3 / den3))
+                # if nb_it==0 and classe==0:
+                #     print("dice_class3=",dice_class3)
+
+                if math.isnan(dice_class3): # utile seulement si on n'utilise pas de smooth dans intersect et den
+                    dice_class3=0
+
+                dice_class[classe]+= dice_class3
+            nb_it+=1
+            
+    for classe in range (num_classes):
+        dice_class[classe]=dice_class[classe]/nb_it
+    return dice_class
+
+
+def dice_score_class6(model,dataloader):
+    # Set device depending on the availability of GPU
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.mps.is_available():  # Apple M-series of chips
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    dice_class=[0,0,0,0]
+    num_classes=4
+    smooth=1e-6
+    nb_it=0
+    for idx, data in enumerate(dataloader):
+        images, labels, img_names = data
+        labels = to_var(labels).to(device)
+        images = to_var(images).to(device)
+
+        net_predictions = model(images)
+        probs = torch.softmax(net_predictions, dim=1)
+        y_pred = torch.argmax(probs, dim=1)
+
+        segmentation_classes = getTargetSegmentation(labels)
+        dice_target = F.one_hot(segmentation_classes, num_classes = num_classes).permute(0,3,1,2).contiguous()
+        
+        for i_batch in range (dice_target.shape[0]):
+            #Show first image and mask
+            y_pred_batch = torch.argmax(probs[i_batch], dim=0)
+            for classe in range (num_classes):
+                # Calculate the intersection and denominator parts for the Dice coefficient
+                pred_class = np.zeros(y_pred_batch.shape)
+                idx_pred = np.where(y_pred_batch == classe)
+                pred_class[idx_pred] = 1
+
+
+                intersect3 = (pred_class*dice_target[i_batch][classe].data.numpy()).sum()#+ smooth
+                # intersect3 = torch.sum(torch.mul(probs[i_batch][classe], dice_target[i_batch][classe]), dim=(0,1))+ smooth
+                
+                den3 = (((pred_class*pred_class).sum())+((dice_target[i_batch][classe].data.numpy()*dice_target[i_batch][classe].data.numpy()).sum()))#+ smooth
+                # den3 = (((pred_class).sum())+((target_class).sum()))+ smooth
+                den5=den3-intersect3
+
+                jaccard=sklearn.metrics.jaccard_score(pred_class, dice_target[i_batch][classe].data.numpy(), average='micro')
+                dice_class3=2*jaccard*den5/den3
+                # dice_class3=(2.0 * (intersect3 / den3))
+                # if nb_it==0 and classe==0:
+                #     print("dice_class3=",dice_class3)
+
+                if math.isnan(dice_class3): # utile seulement si on n'utilise pas de smooth dans intersect et den
+                    dice_class3=0
+
+                dice_class[classe]+= dice_class3
+            nb_it+=1
+            
     for classe in range (num_classes):
         dice_class[classe]=dice_class[classe]/nb_it
     return dice_class
@@ -441,7 +478,7 @@ def jaccard_score_class3(model,dataloader):  #Jaccard (or IOU) score with jc fro
     return jaccard
 
 
-def miou(model, dataloader):
+def jaccard_score_class4(model,dataloader):  #Jaccard (or IOU) score with jc from medpy
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -449,32 +486,109 @@ def miou(model, dataloader):
         device = torch.device("mps")
     else:
         device = torch.device("cpu")
-    ious = list()
-    new_iou=list()
+    jaccard=[0,0,0,0]
+    num_classes=4
+    smooth=1e-6
+    nb_it=0
     for idx, data in enumerate(dataloader):
         images, labels, img_names = data
+
         labels = to_var(labels).to(device)
         images = to_var(images).to(device)
-        prediction = model(images)
-        prediction = F.softmax(prediction, dim=1)
-        print ("prediction.size 1=",prediction.size())
-        prediction = torch.argmax(prediction, axis=1)#.squeeze(1)
-        print ("prediction.size 2=",prediction.size())
-        # prediction = prediction.view(-1)
-        # labels = labels.view(-1)
-        print ("labels.size 1=",labels.size())
+
+        net_predictions = model(images)
+        probs = torch.softmax(net_predictions, dim=1)
+        y_pred = torch.argmax(probs, dim=1)
+
         segmentation_classes = getTargetSegmentation(labels)
-        labels = F.one_hot(segmentation_classes, num_classes = 4).permute(0,3,1,2).contiguous()
-        labels = torch.argmax(labels, axis=1)
-        print ("labels.size 2=",labels.size())
-        new_iou=iou2(labels, prediction, num_classes=4)
-        for i in ious:
-            ious[i]+=new_iou[i]
-        #ious.append(iou(labels, prediction, num_classes=4))
-    for i in ious:
-        ious[i]=ious[i]/idx
-    return ious
-    #return (sum(ious) / len(ious))
+        jaccard_target = F.one_hot(segmentation_classes, num_classes = num_classes).permute(0,3,1,2).contiguous()
+        jaccard_target_argmax = torch.argmax(jaccard_target, dim=1)
+
+        for i_batch in range (jaccard_target.shape[0]):
+            #Show first image and mask
+            y_pred_batch = torch.argmax(probs[i_batch], dim=0)
+            for classe in range (num_classes):
+                # Calculate the intersection and denominator parts for the Dice coefficient
+                pred_class = np.zeros(y_pred_batch.shape)
+                idx_pred = np.where(y_pred_batch == classe)
+                pred_class[idx_pred] = 1
+
+                if nb_it==0 and classe==0 :
+                    d=0
+                    # print ("probs[i_batch][classe].data.numpy()=",probs[i_batch][classe].data.numpy())
+                    # print ("y_pred[i_batch].data.numpy()=",y_pred[i_batch].data.numpy())
+                    # print ("jaccard_target[i_batch][classe].data.numpy()=",jaccard_target[i_batch][classe].data.numpy())
+                    # print ("jaccard_target_argmax[i_batch].data.numpy()=",jaccard_target_argmax[i_batch].data.numpy())
+                    # print ("jaccard_target[i_batch][classe].data.numpy()=",jaccard_target[i_batch][classe].data.numpy())
+                    # Enregistrer dans un fichier texte
+                    np.savetxt("array_gt.txt", jaccard_target[i_batch][classe].data.numpy(), delimiter=",", fmt="%.2f", comments="")
+                    np.savetxt("array_pred.txt", pred_class, delimiter=",", fmt="%.2f", comments="")
+
+                    # Lecture pour vérifier
+                    # with open("array_output.txt", "r") as file:
+                    #     print(file.read())
+                # jaccard[classe]+= sklearn.metrics.jaccard_score(y_pred[i_batch].data.numpy(), jaccard_target_argmax[i_batch].data.numpy(), average=None)
+                jaccard[classe]+= sklearn.metrics.jaccard_score(pred_class, jaccard_target[i_batch][classe].data.numpy(), average='micro')
+            nb_it+=1
+
+    for classe in range (num_classes):
+        jaccard[classe]=jaccard[classe]/nb_it
+    return jaccard
+
+
+def jaccard_score_class5(model,dataloader):  #Jaccard (or IOU) score with jc from medpy
+    # Set device depending on the availability of GPU
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.mps.is_available():  # Apple M-series of chips
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    jaccard=[0,0,0,0]
+    num_classes=4
+    smooth=1e-6
+    nb_it=0
+    nb_nan=0
+    nb_den5=0
+    for idx, data in enumerate(dataloader):
+        images, labels, img_names = data
+
+        labels = to_var(labels).to(device)
+        images = to_var(images).to(device)
+
+        net_predictions = model(images)
+        probs = torch.softmax(net_predictions, dim=1)
+        y_pred = torch.argmax(probs, dim=1)
+
+        segmentation_classes = getTargetSegmentation(labels)
+        jaccard_target = F.one_hot(segmentation_classes, num_classes = num_classes).permute(0,3,1,2).contiguous()
+        for i_batch in range (jaccard_target.shape[0]):
+            #Show first image and mask
+            y_pred_batch = torch.argmax(probs[i_batch], dim=0)
+            for classe in range (num_classes):
+                pred_class = np.zeros(y_pred_batch.shape)
+                idx_pred = np.where(y_pred_batch == classe)
+                pred_class[idx_pred] = 1
+                # Calculate the intersection and denominator parts for the Dice coefficient
+                intersect3 = (np.multiply(pred_class,jaccard_target[i_batch][classe].data.numpy())).sum()#+smooth
+                # intersect3 = ((pred_class* jaccard_target[i_batch][classe].data.numpy())).sum()+smooth
+                
+                den3 = ((np.multiply(pred_class,pred_class)) + (np.multiply(jaccard_target[i_batch][classe].data.numpy(), jaccard_target[i_batch][classe].data.numpy()))).sum()#+smooth
+                # den3 = ((pred_class*pred_class) + (jaccard_target[i_batch][classe].data.numpy()* jaccard_target[i_batch][classe].data.numpy())).sum()+smooth
+                den5=den3-intersect3#+smooth
+
+                iou_c=(intersect3 / den5)
+                if math.isnan(iou_c): # utile seulement si on n'utilise pas de smooth dans intersect et den
+                    iou_c=0
+
+                jaccard[classe]+= iou_c
+                # jaccard[classe]+= jc(probs[i_batch][classe].data.numpy(), jaccard_target[i_batch][classe].data.numpy())
+            nb_it+=1
+    print ("nb_den5=",nb_den5)
+    for classe in range (num_classes):
+        jaccard[classe]=jaccard[classe]/nb_it
+    return jaccard
+
 
 
 

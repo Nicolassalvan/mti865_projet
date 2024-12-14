@@ -1,3 +1,4 @@
+from typing import Callable
 import torch.nn.init as init
 import torch.nn.functional as F
 import math
@@ -17,6 +18,55 @@ def initialize_weights(*models):
             elif isinstance(module, nn.BatchNorm2d):
                 module.weight.data.fill_(1)
                 module.bias.data.zero_()
+
+
+# Inspired by https://github.com/hubutui/DiceLoss-PyTorch/blob/master/loss.py
+class DiceLoss(nn.Module):
+    """
+    DiceLoss is a custom loss function used for evaluating the similarity between the predicted output and the ground truth in segmentation tasks.
+    It is based on the Dice coefficient, which we saw in the lecture.
+
+    Attributes:
+        smooth (float): A smoothing factor to avoid division by zero errors.
+
+    Methods:
+        forward(model_out, target): Compute the loss between the model output and the target.
+    """
+
+    def __init__(self, smooth=1.0):
+        super(DiceLoss, self).__init__()
+        self.smooth = smooth
+
+    def forward(self, model_out, target):
+        """
+        Compute the loss between the model output and the target.
+        This function first applies a softmax activation to the model output, then
+        reshapes both the model output and the target to be 2D tensors. It calculates
+        the intersection and denominator for the Dice coefficient and computes the
+        loss as 1 minus the Dice coefficient.
+        Args:
+            model_out (torch.Tensor): The output from the model, expected to have the same shape as the target.
+            target (torch.Tensor): The ground truth tensor, expected to have the same shape as the model output.
+        Returns:
+            torch.Tensor: The mean loss value.
+        """
+        assert (
+            model_out.size() == target.size()
+        ), f"'output' and 'target' must have the same shape ({model_out.size()} != {target.size()})"
+        model_out = torch.softmax(model_out, dim=1)
+
+        # Flatten the tensors to 2D arrays for easier computation
+        model_out = model_out.contiguous().view(model_out.shape[0], -1)
+        target = target.contiguous().view(target.shape[0], -1)
+
+        # Calculate the intersection and denominator parts for the Dice coefficient
+        intersect = torch.sum(torch.mul(model_out, target), dim=1) + self.smooth
+        den = torch.sum(model_out.pow(2) + target.pow(2), dim=1) + self.smooth
+
+        # Calculate the Dice coefficient as seen in the lecture and return 1 minus the coefficient as the loss
+        loss = 1 - (2.0 * (intersect / den))
+
+        return loss.mean()
 
 
 class _EncoderBlock(nn.Module):
@@ -69,7 +119,7 @@ class UNet(nn.Module):
             nn.BatchNorm2d(4),
             nn.ReLU(inplace=True),
         )
-        self.final = nn.Conv2d(64, num_classes, kernel_size=1)
+        self.final = nn.Conv2d(4, num_classes, kernel_size=1)
         initialize_weights(self)
 
     def forward(self, x):
@@ -78,10 +128,18 @@ class UNet(nn.Module):
         enc3 = self.enc3(enc2)
         enc4 = self.enc4(enc3)
         center = self.center(enc4)
-        dec4 = self.dec4(torch.cat([center, F.upsample(enc4, center.size()[2:], mode='bilinear')], 1))
-        dec3 = self.dec3(torch.cat([dec4, F.upsample(enc3, dec4.size()[2:], mode='bilinear')], 1))
-        dec2 = self.dec2(torch.cat([dec3, F.upsample(enc2, dec3.size()[2:], mode='bilinear')], 1))
-        dec1 = self.dec1(torch.cat([dec2, F.upsample(enc1, dec2.size()[2:], mode='bilinear')], 1))
+        dec4 = self.dec4(
+            torch.cat([center, F.upsample(enc4, center.size()[2:], mode="bilinear")], 1)
+        )
+        dec3 = self.dec3(
+            torch.cat([dec4, F.upsample(enc3, dec4.size()[2:], mode="bilinear")], 1)
+        )
+        dec2 = self.dec2(
+            torch.cat([dec3, F.upsample(enc2, dec3.size()[2:], mode="bilinear")], 1)
+        )
+        dec1 = self.dec1(
+            torch.cat([dec2, F.upsample(enc1, dec2.size()[2:], mode="bilinear")], 1)
+        )
         final = self.final(dec1)
 
-        return F.upsample(final, x.size()[2:], mode='bilinear')
+        return F.upsample(final, x.size()[2:], mode="bilinear")

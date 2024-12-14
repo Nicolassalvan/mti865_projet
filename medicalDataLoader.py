@@ -9,9 +9,6 @@ from random import random, randint, uniform
 
 from torchvision.transforms.v2 import functional as F
 
-from torchvision.transforms.v2 import ElasticTransform, ColorJitter
-import matplotlib.pyplot as plt
-
 # Ignore warnings
 import warnings
 
@@ -114,30 +111,6 @@ class MedicalImageDataset(Dataset):
             translate_y = uniform(-5, 5)
             img = F.affine(img, angle=0, translate=(0, translate_y), scale=1, shear=0)
             mask = F.affine(mask, angle=0, translate=(0, translate_y), scale=1, shear=0)
-        # if random() > 0.5:
-        #     elastic_transformer = ElasticTransform(alpha=250.0)
-        #     img = elastic_transformer(img)
-        #     mask = elastic_transformer(mask)
-        #     print("elastictrans")
-            #print('Image batch dimensions: ', img.size())
-
-            #plot([img]+mask)
-
-        # if random() > 0.5:
-        #     jitter = ColorJitter(brightness=.5, hue=.3)
-        #     img = jitter(img)
-        #     mask = mask
-            # print("jitter")
-            # plt.figure()
-            # plt.subplot(1,2,1)
-            # plt.imshow(img, cmap='gray')
-            # plt.title('Image')
-            # plt.axis('off')
-            # plt.subplot(1,2,2)
-            # plt.imshow(mask, cmap='gray')
-            # plt.title('Mask')
-            # plt.axis('off')
-            # plt.show()
         # if random() > 0.5:
         #     # Rescale between 0.6 and 1.4
         #     img = F.affine(img, angle=0, translate=(0, 0), scale=(0.6, 1.4), shear=0)
