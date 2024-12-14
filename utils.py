@@ -47,7 +47,10 @@ def compute_dsc(pred, gt):
 
 
 
-
+# Version dice score où image de prédiction est composée de la probabilité softmax à chaque pixel donc
+# la somme des ŝp (softmax) au carré se fait sur tous les pixels de prédiction et pas seulement 
+# sur ceux aux positions correspondantes à celles où la classe traitée est le résultat du argmax 
+# (version pas bonne niveau théorique je crois)
 def dice_score_class(model,dataloader):
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
@@ -82,8 +85,6 @@ def dice_score_class(model,dataloader):
                 dice_class3=(2.0 * (intersect3 / den3))
 
                 dice_class[classe]+= dice_class3.item()
-                # if nb_it==0 and classe==0:
-                #     print("dice_class=",dice_class)
                 
             nb_it+=1
             
@@ -92,6 +93,8 @@ def dice_score_class(model,dataloader):
     return dice_class
 
 
+#Pareil que dice_score_class1 mais en utilisant la fonction dc de medpy (qui calcule l'intersection 
+# et le dénominateur et après le dice =2*intersection/den )
 def dice_score_class2(model,dataloader): # DICE score with dc from medpy
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
@@ -121,8 +124,7 @@ def dice_score_class2(model,dataloader): # DICE score with dc from medpy
             for classe in range (num_classes):
                 # Calculate the intersection and denominator parts for the Dice coefficient
                 dice_class[classe]+= dc(probs[i_batch][classe].data.numpy(), dice_target[i_batch][classe].data.numpy())
-                # if nb_it==0 and classe==0:
-                #     print("dice_class2=",dice_class)
+
             nb_it+=1
 
     for classe in range (num_classes):
@@ -130,6 +132,8 @@ def dice_score_class2(model,dataloader): # DICE score with dc from medpy
     return dice_class
 
 
+# Version du dice où image de prédiction est composée seulement de 1, là où la classe est le résultat 
+# du argmax ou 0,sinon, à chaque pixel(bonne version niveau théorique je crois)
 def dice_score_class3(model,dataloader):
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
@@ -163,18 +167,11 @@ def dice_score_class3(model,dataloader):
                 idx_pred = np.where(y_pred_batch == classe)
                 pred_class[idx_pred] = 1
 
-                target_class = np.zeros(dice_target[i_batch][classe].shape)
-                idx_target = np.where(dice_target[i_batch][classe] == 1)
-                target_class[idx_target] = 1
-                intersect3 = (pred_class*target_class).sum()+ smooth
-                # intersect3 = torch.sum(torch.mul(probs[i_batch][classe], dice_target[i_batch][classe]), dim=(0,1))+ smooth
+                intersect3 = (pred_class*dice_target[i_batch][classe].data.numpy()).sum()+ smooth
                 
-                den3 = (((pred_class*pred_class).sum())+((target_class*target_class).sum()))+ smooth
-                # den3 = (((pred_class).sum())+((target_class).sum()))+ smooth
+                den3 = (((pred_class*pred_class).sum())+((dice_target[i_batch][classe].data.numpy()*dice_target[i_batch][classe].data.numpy()).sum()))+ smooth
                 
                 dice_class3=(2.0 * (intersect3 / den3))
-                # if nb_it==0 and classe==0:
-                #     print("dice_class3=",dice_class3)
 
                 dice_class[classe]+= dice_class3
             nb_it+=1
@@ -183,6 +180,8 @@ def dice_score_class3(model,dataloader):
         dice_class[classe]=dice_class[classe]/nb_it
     return dice_class
 
+# Meme version que dice_score_class3 mais cette fois c'est la soft dice (comme la soft dice loss) :
+# ce n'est plus ŷp mais ŝp (softmax au lieu de binaire 0 ou 1)
 def dice_score_class4(model,dataloader):
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
@@ -213,45 +212,29 @@ def dice_score_class4(model,dataloader):
             for classe in range (num_classes):
                 # Calculate the intersection and denominator parts for the Dice coefficient
                 pred_class = np.zeros(y_pred_batch.shape)
-                # idx_pred = np.where(y_pred_batch == classe)
-                # if nb_it==0 and classe==0:
-                    # print("idx_pred=",idx_pred)
-                    # print ("probs[i_batch][classe].size()=",probs[i_batch][classe].size())
-                    # print("probs[i_batch][classe][idx_pred]=",probs[i_batch][classe][idx_pred])
-                # pred_class[idx_pred] = 1
-
-                # print ("y_pred_batch.shape[0]=",y_pred_batch.shape[0])
-                # print ("y_pred_batch.shape[1]=",y_pred_batch.shape[1])
-                # print ("probs[i_batch][classe][i][j]= ",probs[i_batch][classe][0][0])
                 for i in range (y_pred_batch.shape[0]):
                     for j in range (y_pred_batch.shape[1]):
                         if (y_pred_batch[i][j] == classe):
-                            d=0
                             pred_class[i][j] = probs[i_batch][classe][i][j].item()
 
-
                 intersect3 = (pred_class*dice_target[i_batch][classe].data.numpy()).sum()#+ smooth
-                # intersect3 = torch.sum(torch.mul(probs[i_batch][classe], dice_target[i_batch][classe]), dim=(0,1))+ smooth
                 
                 den3 = (((pred_class*pred_class).sum())+((dice_target[i_batch][classe].data.numpy()*dice_target[i_batch][classe].data.numpy()).sum()))#+ smooth
-                # den3 = (((pred_class).sum())+((target_class).sum()))+ smooth
                 
                 dice_class3=(2.0 * (intersect3 / den3))
-                # if nb_it==0 and classe==0:
-                #     print("dice_class4=",dice_class3)
 
                 if math.isnan(dice_class3): # utile seulement si on n'utilise pas de smooth dans intersect et den
                     dice_class3=0
 
                 dice_class[classe]+= dice_class3
             nb_it+=1
-            # print("nb_it=",nb_it)
             
     for classe in range (num_classes):
         dice_class[classe]=dice_class[classe]/nb_it
     return dice_class
 
-
+# Même chose que dice_score_class3 (vraiment la même fonction) mais sans utiliser les smooth pour les
+# intersections et les dénominateurs
 def dice_score_class5(model,dataloader):
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
@@ -307,6 +290,8 @@ def dice_score_class5(model,dataloader):
     return dice_class
 
 
+# Meme version que dice_score_class5 mais utilise jaccard_score de sklearn.metrics, qui calcule 
+# la métrique jaccard, et dice=2*jaccard*(dénominateur jaccard)/(dénominateur dice)
 def dice_score_class6(model,dataloader):
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
@@ -342,17 +327,12 @@ def dice_score_class6(model,dataloader):
 
 
                 intersect3 = (pred_class*dice_target[i_batch][classe].data.numpy()).sum()#+ smooth
-                # intersect3 = torch.sum(torch.mul(probs[i_batch][classe], dice_target[i_batch][classe]), dim=(0,1))+ smooth
                 
                 den3 = (((pred_class*pred_class).sum())+((dice_target[i_batch][classe].data.numpy()*dice_target[i_batch][classe].data.numpy()).sum()))#+ smooth
-                # den3 = (((pred_class).sum())+((target_class).sum()))+ smooth
                 den5=den3-intersect3
 
                 jaccard=sklearn.metrics.jaccard_score(pred_class, dice_target[i_batch][classe].data.numpy(), average='micro')
                 dice_class3=2*jaccard*den5/den3
-                # dice_class3=(2.0 * (intersect3 / den3))
-                # if nb_it==0 and classe==0:
-                #     print("dice_class3=",dice_class3)
 
                 if math.isnan(dice_class3): # utile seulement si on n'utilise pas de smooth dans intersect et den
                     dice_class3=0
@@ -365,7 +345,12 @@ def dice_score_class6(model,dataloader):
     return dice_class
 
 
-def jaccard_score_class(model,dataloader): #Jaccard (or IOU) score
+
+#Jaccard (or IOU) score où image de prédiction est composée de la probabilité softmax à chaque pixel donc
+# la somme des ŝp (softmax) au carré se fait sur tous les pixels de prédiction et pas seulement 
+# sur ceux aux positions correspondantes à celles où la classe traitée est le résultat du argmax 
+# (version pas bonne niveau théorique je crois)
+def jaccard_score_class(model,dataloader): 
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -406,7 +391,10 @@ def jaccard_score_class(model,dataloader): #Jaccard (or IOU) score
         iou_class[classe]=iou_class[classe]/nb_it
     return iou_class
 
-def jaccard_score_class2(model,dataloader): #Jaccard (or IOU) score with binary jaccard coeff from torchmetrics
+
+#Jaccard (or IOU) score with binary jaccard coeff from torchmetrics (l'image prédiction est composée 
+#de probabilités softmax à chaque pixels, comme dans le cas d'avant)
+def jaccard_score_class2(model,dataloader): 
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -433,7 +421,7 @@ def jaccard_score_class2(model,dataloader): #Jaccard (or IOU) score with binary 
         for i_batch in range (jaccard_target.shape[0]):
             #Show first image and mask
             for classe in range (num_classes):
-                # Calculate the intersection and denominator parts for the Dice coefficient
+                # Calculate the intersection and denominator parts for the Jaccard
                 jaccard[classe]+= binary_jaccard_index(probs[i_batch][classe], jaccard_target[i_batch][classe],0.15).item()
             nb_it+=1
 
@@ -442,7 +430,9 @@ def jaccard_score_class2(model,dataloader): #Jaccard (or IOU) score with binary 
     return jaccard
 
 
-def jaccard_score_class3(model,dataloader):  #Jaccard (or IOU) score with jc from medpy
+# Jaccard (or IOU) score with jc from medpy(l'image prédiction est composée de toutes les probabilités 
+# softmax, à chaque pixel, comme dans les cas d'avant)
+def jaccard_score_class3(model,dataloader):  
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -469,7 +459,7 @@ def jaccard_score_class3(model,dataloader):  #Jaccard (or IOU) score with jc fro
         for i_batch in range (jaccard_target.shape[0]):
             #Show first image and mask
             for classe in range (num_classes):
-                # Calculate the intersection and denominator parts for the Dice coefficient
+                # Calculate the intersection and denominator parts for the Jaccard
                 jaccard[classe]+= jc(probs[i_batch][classe].data.numpy(), jaccard_target[i_batch][classe].data.numpy())
             nb_it+=1
 
@@ -478,7 +468,9 @@ def jaccard_score_class3(model,dataloader):  #Jaccard (or IOU) score with jc fro
     return jaccard
 
 
-def jaccard_score_class4(model,dataloader):  #Jaccard (or IOU) score with jc from medpy
+# Jaccard (or IOU) score with jaccard_score from sklearn.metrics (cette fois ci l'image prédiction est 
+# composée seulement de 1, là où la classe est le résultat du argmax ou 0,sinon, à chaque pixel)
+def jaccard_score_class4(model,dataloader):  
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -508,26 +500,11 @@ def jaccard_score_class4(model,dataloader):  #Jaccard (or IOU) score with jc fro
             #Show first image and mask
             y_pred_batch = torch.argmax(probs[i_batch], dim=0)
             for classe in range (num_classes):
-                # Calculate the intersection and denominator parts for the Dice coefficient
+                # Calculate the intersection and denominator parts for the Jaccard
                 pred_class = np.zeros(y_pred_batch.shape)
                 idx_pred = np.where(y_pred_batch == classe)
                 pred_class[idx_pred] = 1
 
-                if nb_it==0 and classe==0 :
-                    d=0
-                    # print ("probs[i_batch][classe].data.numpy()=",probs[i_batch][classe].data.numpy())
-                    # print ("y_pred[i_batch].data.numpy()=",y_pred[i_batch].data.numpy())
-                    # print ("jaccard_target[i_batch][classe].data.numpy()=",jaccard_target[i_batch][classe].data.numpy())
-                    # print ("jaccard_target_argmax[i_batch].data.numpy()=",jaccard_target_argmax[i_batch].data.numpy())
-                    # print ("jaccard_target[i_batch][classe].data.numpy()=",jaccard_target[i_batch][classe].data.numpy())
-                    # Enregistrer dans un fichier texte
-                    np.savetxt("array_gt.txt", jaccard_target[i_batch][classe].data.numpy(), delimiter=",", fmt="%.2f", comments="")
-                    np.savetxt("array_pred.txt", pred_class, delimiter=",", fmt="%.2f", comments="")
-
-                    # Lecture pour vérifier
-                    # with open("array_output.txt", "r") as file:
-                    #     print(file.read())
-                # jaccard[classe]+= sklearn.metrics.jaccard_score(y_pred[i_batch].data.numpy(), jaccard_target_argmax[i_batch].data.numpy(), average=None)
                 jaccard[classe]+= sklearn.metrics.jaccard_score(pred_class, jaccard_target[i_batch][classe].data.numpy(), average='micro')
             nb_it+=1
 
@@ -536,7 +513,9 @@ def jaccard_score_class4(model,dataloader):  #Jaccard (or IOU) score with jc fro
     return jaccard
 
 
-def jaccard_score_class5(model,dataloader):  #Jaccard (or IOU) score with jc from medpy
+# Jaccard (or IOU) score avec ou sans smooth, sans fonction d'une librairie(image prédiction comme 
+# jaccard_score_class4)
+def jaccard_score_class5(model,dataloader): 
     # Set device depending on the availability of GPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -569,12 +548,11 @@ def jaccard_score_class5(model,dataloader):  #Jaccard (or IOU) score with jc fro
                 pred_class = np.zeros(y_pred_batch.shape)
                 idx_pred = np.where(y_pred_batch == classe)
                 pred_class[idx_pred] = 1
-                # Calculate the intersection and denominator parts for the Dice coefficient
+
+                # Calculate the intersection and denominator parts for the Jaccard
                 intersect3 = (np.multiply(pred_class,jaccard_target[i_batch][classe].data.numpy())).sum()#+smooth
-                # intersect3 = ((pred_class* jaccard_target[i_batch][classe].data.numpy())).sum()+smooth
                 
                 den3 = ((np.multiply(pred_class,pred_class)) + (np.multiply(jaccard_target[i_batch][classe].data.numpy(), jaccard_target[i_batch][classe].data.numpy()))).sum()#+smooth
-                # den3 = ((pred_class*pred_class) + (jaccard_target[i_batch][classe].data.numpy()* jaccard_target[i_batch][classe].data.numpy())).sum()+smooth
                 den5=den3-intersect3#+smooth
 
                 iou_c=(intersect3 / den5)
@@ -582,9 +560,8 @@ def jaccard_score_class5(model,dataloader):  #Jaccard (or IOU) score with jc fro
                     iou_c=0
 
                 jaccard[classe]+= iou_c
-                # jaccard[classe]+= jc(probs[i_batch][classe].data.numpy(), jaccard_target[i_batch][classe].data.numpy())
             nb_it+=1
-    print ("nb_den5=",nb_den5)
+
     for classe in range (num_classes):
         jaccard[classe]=jaccard[classe]/nb_it
     return jaccard
