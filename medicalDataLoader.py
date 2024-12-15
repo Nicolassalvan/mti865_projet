@@ -1,13 +1,13 @@
 from __future__ import print_function, division
 import os
-import torch
 import pandas as pd
 from skimage import io, transform
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
-from PIL import Image, ImageOps
-from random import random, randint
+from PIL import Image
+from random import random, randint, uniform
+
+from torchvision.transforms.v2 import functional as F
 
 # Ignore warnings
 import warnings
@@ -98,19 +98,33 @@ class MedicalImageDataset(Dataset):
         return len(self.imgs)
 
     def augment(self, img, mask):
+        # Use pyTorch functional transforms to augment image and mask at the same time
+
         if random() > 0.5:
-            img = ImageOps.flip(img)
-            if mask is not None:
-                mask = ImageOps.flip(mask)
+            img = F.horizontal_flip(img)
+            mask = F.horizontal_flip(mask)
         if random() > 0.5:
-            img = ImageOps.mirror(img)
-            if mask is not None:
-                mask = ImageOps.mirror(mask)
+            img = F.vertical_flip(img)
+            mask = F.vertical_flip(mask)
         if random() > 0.5:
-            angle = random() * 60 - 30
-            img = img.rotate(angle)
-            if mask is not None : 
-                mask = mask.rotate(angle)
+            # angle = random() * 60 - 30
+            angle = uniform(-5, 5)
+            img = F.rotate(img, angle)
+            mask = F.rotate(mask, angle)
+        if random() > 0.5:
+            # x-axis translation between -5 and 5 pixels
+            translate_x = uniform(-5, 5)
+            img = F.affine(img, angle=0, translate=(translate_x, 0), scale=1, shear=0)
+            mask = F.affine(mask, angle=0, translate=(translate_x, 0), scale=1, shear=0)
+        if random() > 0.5:
+            # y-axis translation between -5 and 5 pixels
+            translate_y = uniform(-5, 5)
+            img = F.affine(img, angle=0, translate=(0, translate_y), scale=1, shear=0)
+            mask = F.affine(mask, angle=0, translate=(0, translate_y), scale=1, shear=0)
+        # if random() > 0.5:
+        #     # Rescale between 0.6 and 1.4
+        #     img = F.affine(img, angle=0, translate=(0, 0), scale=(0.6, 1.4), shear=0)
+        #     mask = F.affine(mask, angle=0, translate=(0, 0), scale=(0.6, 1.4), shear=0)
         return img, mask
 
     def __getitem__(self, index):
@@ -125,7 +139,7 @@ class MedicalImageDataset(Dataset):
             mask = None # pas de masque pour le moment 
 
         if self.equalize:
-            img = ImageOps.equalize(img)
+            img = F.equalize(img)
 
         if self.augmentation:
             img, mask = self.augment(img, mask)

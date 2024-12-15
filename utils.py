@@ -21,7 +21,12 @@ import scipy.spatial
 
 
 labels = {0: "Background", 1: "Foreground"}
-LABEL_TO_COLOR = {0: [0, 0, 0], 1: [255, 0, 0], 2: [0, 255, 0], 3: [0, 0, 255]}
+LABEL_TO_COLOR = {
+    0: [0, 0, 0], # Background
+    1: [67, 67, 67], # Right ventricle (RV)
+    2: [154, 154, 154], # Myocardium (MYO)
+    3: [255, 255, 255] # Left ventricle (LV)
+}
 
 
 def compute_dsc(pred, gt):
@@ -75,8 +80,8 @@ def plot_net_predictions(imgs, true_masks, masks_pred, batch_size):
         mask_pred = masks_pred[i].cpu().detach().numpy()
         mask_true = np.transpose(true_masks[i].cpu().detach().numpy(), (1, 2, 0))
 
-        ax[0, i].imshow(img)
-        ax[1, i].imshow(mask_to_rgb(mask_pred), cmap="gray")
+        ax[0, i].imshow(img, cmap="gray")
+        ax[1, i].imshow(mask_to_rgb(mask_pred))
         ax[1, i].set_title("Predicted")
         ax[2, i].imshow(mask_true, cmap="gray")
         ax[2, i].set_title("Ground truth")
@@ -119,6 +124,7 @@ def inference(net, img_batch, modelName, epoch):
         labels = to_var(labels)
 
         net_predictions = net(images)
+        print(net_predictions.shape)
         segmentation_classes = getTargetSegmentation(labels)
         CE_loss_value = CE_loss(net_predictions, segmentation_classes)
         losses.append(CE_loss_value.cpu().data.numpy())
@@ -152,3 +158,20 @@ def inference(net, img_batch, modelName, epoch):
 class MaskToTensor(object):
     def __call__(self, img):
         return torch.from_numpy(np.array(img, dtype=np.int32)).float()
+
+class EarlyTermination:
+    def __init__(self, max_epochs_without_improvement=1, min_delta=0):
+        self.max_epochs_without_improvement = max_epochs_without_improvement
+        self.min_delta = min_delta
+        self.counter = 0
+        self.min_val_loss = float('inf') # Set to infinity so that the first validation loss is always lower
+
+    def should_terminate(self, validation_loss):
+        if validation_loss < self.min_val_loss:
+            self.min_val_loss = validation_loss
+            self.counter = 0
+        elif validation_loss > (self.min_val_loss + self.min_delta):
+            self.counter += 1
+            if self.counter >= self.max_epochs_without_improvement:
+                return True
+        return False
