@@ -165,6 +165,7 @@ cython_debug/
 #.idea/
 
 .DS_Store
-runs/
-models/ 
+
+models/
 Results/
+runs/
