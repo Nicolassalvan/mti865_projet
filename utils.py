@@ -21,7 +21,13 @@ import scipy.spatial
 
 
 labels = {0: "Background", 1: "Foreground"}
-LABEL_TO_COLOR = {0: [0, 0, 0], 1: [255, 0, 0], 2: [0, 255, 0], 3: [0, 0, 255]}
+LABEL_TO_COLOR = {
+    0: [0, 0, 0], # Background
+    1: [67, 67, 67], # Right ventricle (RV)
+    2: [154, 154, 154], # Myocardium (MYO)
+    3: [255, 255, 255] # Left ventricle (LV)
+}
+
 
 
 def compute_dsc(pred, gt):
@@ -75,7 +81,7 @@ def plot_net_predictions(imgs, true_masks, masks_pred, batch_size):
         mask_pred = masks_pred[i].cpu().detach().numpy()
         mask_true = np.transpose(true_masks[i].cpu().detach().numpy(), (1, 2, 0))
 
-        ax[0, i].imshow(img)
+        ax[0, i].imshow(img, cmap="gray")
         ax[1, i].imshow(mask_to_rgb(mask_pred), cmap="gray")
         ax[1, i].set_title("Predicted")
         ax[2, i].imshow(mask_true, cmap="gray")
@@ -101,6 +107,10 @@ def getTargetSegmentation(batch):
 
 
 def inference(net, img_batch, modelName, epoch):
+    """
+    Function to perform inference on a batch of images and save the results
+    
+    """
     total = len(img_batch)
     net.eval()
 

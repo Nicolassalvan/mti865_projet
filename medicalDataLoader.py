@@ -78,8 +78,8 @@ def make_dataset(root, mode):
 
 class MedicalImageDataset(Dataset):
     """Face Landmarks dataset."""
-
-    def __init__(self, mode, root_dir, transform=None, mask_transform=None, augment=False, equalize=False):
+    # seed 
+    def __init__(self, mode, root_dir, transform=None, mask_transform=None, augment=False, equalize=False, seed=42):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -93,20 +93,22 @@ class MedicalImageDataset(Dataset):
         self.augmentation = augment
         self.equalize = equalize
         self.mode = mode
+        np.random.seed(seed)
+
 
     def __len__(self):
         return len(self.imgs)
 
     def augment(self, img, mask):
-        if random() > 0.5:
+        if np.random.rand() > 0.5:
             img = ImageOps.flip(img)
             if mask is not None:
                 mask = ImageOps.flip(mask)
-        if random() > 0.5:
+        if np.random.rand() > 0.5:
             img = ImageOps.mirror(img)
             if mask is not None:
                 mask = ImageOps.mirror(mask)
-        if random() > 0.5:
+        if np.random.rand() > 0.5:
             angle = random() * 60 - 30
             img = img.rotate(angle)
             if mask is not None : 
