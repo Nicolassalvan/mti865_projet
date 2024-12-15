@@ -93,7 +93,7 @@ class MedicalImageDataset(Dataset):
         self.augmentation = augment
         self.equalize = equalize
         self.mode = mode
-        np.random.seed(seed)
+        np.random.seed(seed) # seed for reproducibility 
 
 
     def __len__(self):
@@ -102,27 +102,27 @@ class MedicalImageDataset(Dataset):
     def augment(self, img, mask):
         # Use pyTorch functional transforms to augment image and mask at the same time
 
-        if random() > 0.5:
+        if np.random.rand() > 0.5:
             img = F.horizontal_flip(img)
-            mask = F.horizontal_flip(mask)
-        if random() > 0.5:
+            mask = F.horizontal_flip(mask) if mask is not None else None
+        if np.random.rand() > 0.5:
             img = F.vertical_flip(img)
-            mask = F.vertical_flip(mask)
-        if random() > 0.5:
+            mask = F.vertical_flip(mask) if mask is not None else None
+        if np.random.rand() > 0.5:
             # angle = random() * 60 - 30
             angle = uniform(-5, 5)
             img = F.rotate(img, angle)
-            mask = F.rotate(mask, angle)
-        if random() > 0.5:
+            mask = F.rotate(mask, angle) if mask is not None else None
+        if np.random.rand() > 0.5:
             # x-axis translation between -5 and 5 pixels
             translate_x = uniform(-5, 5)
             img = F.affine(img, angle=0, translate=(translate_x, 0), scale=1, shear=0)
-            mask = F.affine(mask, angle=0, translate=(translate_x, 0), scale=1, shear=0)
-        if random() > 0.5:
+            mask = F.affine(mask, angle=0, translate=(translate_x, 0), scale=1, shear=0) if mask is not None else None
+        if np.random.rand() > 0.5:
             # y-axis translation between -5 and 5 pixels
             translate_y = uniform(-5, 5)
             img = F.affine(img, angle=0, translate=(0, translate_y), scale=1, shear=0)
-            mask = F.affine(mask, angle=0, translate=(0, translate_y), scale=1, shear=0)
+            mask = F.affine(mask, angle=0, translate=(0, translate_y), scale=1, shear=0) if mask is not None else None
         # if random() > 0.5:
         #     # Rescale between 0.6 and 1.4
         #     img = F.affine(img, angle=0, translate=(0, 0), scale=(0.6, 1.4), shear=0)
