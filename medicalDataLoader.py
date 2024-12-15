@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 
 
 def make_dataset(root, mode):
-    assert mode in ['train','val', 'test']
+    assert mode in ['train', 'train-unlabelled', 'val', 'test']
     items = []
 
     if mode == 'train':
@@ -35,6 +35,15 @@ def make_dataset(root, mode):
             item = (os.path.join(train_img_path, it_im), os.path.join(train_mask_path, it_gt))
             items.append(item)
 
+
+    elif mode == 'train-unlabelled' :
+        train_img_path = os.path.join(root, 'train', 'Img-Unlabeled')
+        unlabeled_images = os.listdir(train_img_path)
+        unlabeled_images.sort()
+
+        for it_im in unlabeled_images:
+            item = (os.path.join(train_img_path, it_im), None)  # pas de masque pour le moment
+            items.append(item)
 
     elif mode == 'val':
         val_img_path = os.path.join(root, 'val', 'Img')
@@ -62,7 +71,8 @@ def make_dataset(root, mode):
         for it_im, it_gt in zip(images, labels):
             item = (os.path.join(test_img_path, it_im), os.path.join(test_mask_path, it_gt))
             items.append(item)
-
+    print('Found %d items in %s' % (len(items), mode))
+    print('First item: ', items[0])
     return items
 
 
@@ -118,9 +128,15 @@ class MedicalImageDataset(Dataset):
         return img, mask
 
     def __getitem__(self, index):
-        img_path, mask_path = self.imgs[index]
-        img = Image.open(img_path)
-        mask = Image.open(mask_path).convert('L')
+
+        if self.mode in ['train', 'val', 'test']:
+            img_path, mask_path = self.imgs[index]
+            img = Image.open(img_path)
+            mask = Image.open(mask_path).convert('L')
+        else:
+            img_path, mask_path = self.imgs[index]
+            img = Image.open(img_path)
+            mask = None # pas de masque pour le moment 
 
         if self.equalize:
             img = F.equalize(img)
@@ -130,6 +146,7 @@ class MedicalImageDataset(Dataset):
 
         if self.transform:
             img = self.transform(img)
-            mask = self.mask_transform(mask)
+            if mask is not None:
+                mask = self.mask_transform(mask)
 
-        return [img, mask, img_path]
+        return [img, mask, img_path] if self.mode in ['train', 'val', 'test'] else [img, None, img_path]
