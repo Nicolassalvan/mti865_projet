@@ -16,6 +16,8 @@ medpy = "^0.5.2"
 matplotlib = "^3.9.2"
 tensorboard = "^2.18.0"
 torch-tb-profiler = "^0.4.3"
+python-dateutil = "^2.9.0.post0"
+ipykernel = "^6.29.5"
 
 
 [build-system]
