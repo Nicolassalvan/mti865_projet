@@ -14,12 +14,9 @@ import time
 from os.path import isfile, join
 import statistics
 from PIL import Image
-from medpy.metric.binary import dc, hd, asd, assd, jc
+from medpy.metric.binary import dc, hd, asd, assd
 import scipy.spatial
-from torch import tensor
-from torchmetrics.functional.classification import binary_jaccard_index
-import sklearn.metrics
-import math
+
 # from scipy.spatial.distance import directed_hausdorff
 
 
