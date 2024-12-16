@@ -5,9 +5,10 @@
 #SBATCH --time=08:00:00             # Temps maximum (adapter)
 #SBATCH --mem=16G                    # Mémoire (adapter)
 #SBATCH --cpus-per-task=4           # Nombre de CPU (adapter)
-
+#SBATCH --mail-type=END               # Envoi à la fin de l'exécution
+#SBATCH --mail-user=your_email@example.com  # Remplacez par votre email
 # Charger les modules nécessaires
-module load python/3.8
+module load python/3.10
 module load scipy-stack 
 
 # Créer un environnement virtuel temporaire (facultatif si vous en avez besoin)
