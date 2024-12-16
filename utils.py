@@ -197,12 +197,23 @@ def inferenceTeacher(net, img_batch, modelName, epoch, device):
         save_folder = os.path.join("./Data/train/Img-UnlabeledPredictions/")
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
+
+        #on doit garder les distributions de probabilités prédites
+        save_folder_probs = os.path.join("./Data/train/Img-UnlabeledProbabilities/")
+        if not os.path.exists(save_folder_probs):
+            os.makedirs(save_folder_probs)
+
+        
         for j in range(len(images)) :
             mask_pred = y_pred[j].cpu().detach().numpy() #get predicted image
             img_name = os.path.basename(img_names[j])  # extrait le nom du fichier
             img_name = os.path.splitext(img_name)[0]  # retire l'extension
             save_path = os.path.join(save_folder, f"{img_name}.png")
             plt.imsave(save_path, mask_pred, cmap='gray')
+
+            prob_map = probs[j].cpu().detach().numpy()  # distribution de proba pour l'image
+            save_path_prob = os.path.join(save_folder_probs, f"{img_name}.npy")
+            np.save(save_path_prob, prob_map)
                
        
         plt.close(fig)
