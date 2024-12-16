@@ -31,6 +31,11 @@ for notebook in $NOTEBOOK_DIR/*.ipynb; do
 
     echo "[ ==== Exécution de $notebook... ==== ]"
     jupyter nbconvert --to notebook --execute --output "$output_notebook" "$notebook" --ExecutePreprocessor.timeout=-1
+    echo "[ ==== Exécution de $notebook terminée ==== ]"
+    echo "[ ==== Notebook enregistré sous $output_notebook ==== ]"
+    echo ""
+
+    
 done
 
 # Désactiver l'environnement virtuel (facultatif)
