@@ -2,18 +2,20 @@
 #SBATCH --job-name=run_notebooks
 #SBATCH --output=logs/output_%j.txt  # Log de sortie
 #SBATCH --error=logs/error_%j.txt   # Log d'erreur
-#SBATCH --time=08:00:00             # Temps maximum (adapter)
+#SBATCH --account=def-chdesa
+#SBATCH --time=10:00:00             # Temps maximum (adapter)
 #SBATCH --mem=16G                    # Mémoire (adapter)
 #SBATCH --cpus-per-task=4           # Nombre de CPU (adapter)
-#SBATCH --mail-type=END               # Envoi à la fin de l'exécution
-#SBATCH --mail-user=your_email@example.com  # Remplacez par votre email
+#SBATCH --mail-type=ALL 
+#SBATCH --mail-user=nicolas.salvan.1@ens.etsmtl.ca # Mettez votre mail ici 
+
 # Charger les modules nécessaires
 module load python/3.10
 module load scipy-stack 
 
 # Créer un environnement virtuel temporaire (facultatif si vous en avez besoin)
 source my_env/bin/activate
-pip install jupyter
+
 
 # Définir les dossiers
 NOTEBOOK_DIR="notebooks"
@@ -29,6 +31,11 @@ for notebook in $NOTEBOOK_DIR/*.ipynb; do
 
     echo "[ ==== Exécution de $notebook... ==== ]"
     jupyter nbconvert --to notebook --execute --output "$output_notebook" "$notebook" --ExecutePreprocessor.timeout=-1
+    echo "[ ==== Exécution de $notebook terminée ==== ]"
+    echo "[ ==== Notebook enregistré sous $output_notebook ==== ]"
+    echo ""
+
+    
 done
 
 # Désactiver l'environnement virtuel (facultatif)
