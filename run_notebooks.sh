@@ -7,7 +7,7 @@
 #SBATCH --mem=16G                    # Mémoire (adapter)
 #SBATCH --cpus-per-task=4           # Nombre de CPU (adapter)
 #SBATCH --mail-type=ALL 
-#SBATCH --mail-user=nicolas.salvan.1@ens.etsmtl.ca
+#SBATCH --mail-user=nicolas.salvan.1@ens.etsmtl.ca # Mettez votre mail ici 
 
 # Charger les modules nécessaires
 module load python/3.10
