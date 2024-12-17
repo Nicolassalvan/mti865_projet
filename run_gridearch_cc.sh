@@ -23,7 +23,7 @@ mkdir $SLURM_TMPDIR/mti865_data
 tar xf data.tar -C $SLURM_TMPDIR/mti865_data
 
 # Run training script
-python3 segmentation_challenge_script.py
+python3 segmentation_challenge_script.py --data_path $SLURM_TMPDIR/mti865_data
 
 # Désactiver l'environnement virtuel (facultatif)
 deactivate
