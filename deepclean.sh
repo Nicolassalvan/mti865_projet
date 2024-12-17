@@ -1,0 +1,1 @@
+rm -rf notebooks/runs notebooks/Results notebooks/models

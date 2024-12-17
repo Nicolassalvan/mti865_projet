@@ -1,0 +1,12 @@
+torch
+torchvision
+matplotlib
+numpy
+pandas
+scikit-image
+Pillow
+tensorboard
+argparse
+sys
+medpy 
+scikit-learn 

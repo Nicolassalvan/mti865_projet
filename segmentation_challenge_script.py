@@ -85,6 +85,7 @@ def run_training(
     batch_size_val: int = 4,
     lr: float = 0.01,
     weight_decay: float = 1e-5,
+    data_dir: str = "./data/",
 ):
     print("-" * 40)
     print("~~~~~~~~  Starting the training... ~~~~~~")
@@ -130,7 +131,7 @@ def run_training(
 
     ## START THE TRAINING
     train_loader_full, val_loader = define_dataloaders(
-        "./data/", batch_size, batch_size_val
+        data_dir, batch_size, batch_size_val
     )
 
     early_terminator = utils.EarlyTermination(max_epochs_without_improvement=7, min_delta=0.01)
@@ -297,7 +298,7 @@ def run_training(
     return best_loss_val
 
 
-def perform_gridsearch():
+def perform_gridsearch(data_dir: str):
     """
     Perform a grid search over specified hyperparameters to find the best combination.
 
@@ -343,7 +344,7 @@ def perform_gridsearch():
                 f"Running training for batch_size={batch_size}, lr={lr}, weight_decay={weight_decay}"
             )
             loss_val = run_training(
-                writer, batch_size, BATCH_SIZE_VAL, lr, weight_decay
+                writer, batch_size, BATCH_SIZE_VAL, lr, weight_decay, data_dir
             )
             run_history.add((batch_size, lr, weight_decay, loss_val))
             if loss_val < best_run["loss"]:
@@ -373,5 +374,19 @@ def perform_random_search():
     }
 
 if __name__ == "__main__":
-    # run_training(writer)
-    perform_gridsearch()
+    parser = argparse.ArgumentParser(description="Segmentation Challenge Script")
+    parser.add_argument(
+        "--data_dir",
+        type=str,
+        default="./data/",
+        help="Path to the data directory",
+    )
+    args = parser.parse_args()
+
+    # Ensure the data directory exists
+    if not os.path.exists(args.data_dir):
+        print("Data directory does not exist. Please check the path.")
+        exit(1)
+
+    # Pass the data directory to the grid search function
+    perform_gridsearch(args.data_dir)
