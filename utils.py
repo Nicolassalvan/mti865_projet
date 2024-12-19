@@ -42,6 +42,12 @@ def compute_dsc(pred, gt):
     return dsc.mean()
 
 
+def mask_to_rgb(mask):
+    rgb = np.zeros(mask.shape + (3,), dtype=np.uint8)
+    for i in np.unique(mask):
+        rgb[mask == i] = LABEL_TO_COLOR[i]
+    return rgb
+
 def getImageImageList(imagesFolder):
     if os.path.exists(imagesFolder):
         imageNames = [
@@ -90,11 +96,7 @@ def plot_net_predictions(imgs, true_masks, masks_pred, batch_size):
     return fig
 
 
-def mask_to_rgb(mask):
-    rgb = np.zeros(mask.shape + (3,), dtype=np.uint8)
-    for i in np.unique(mask):
-        rgb[mask == i] = LABEL_TO_COLOR[i]
-    return rgb
+
 
 
 def getTargetSegmentation(batch):

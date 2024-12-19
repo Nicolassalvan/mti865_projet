@@ -79,7 +79,7 @@ def make_dataset(root, mode):
 class MedicalImageDataset(Dataset):
     """Face Landmarks dataset."""
     # seed 
-    def __init__(self, mode, root_dir, transform=None, mask_transform=None, augment=False, equalize=False, seed=42):
+    def __init__(self, mode, root_dir, transform=None, mask_transform=None, augment=False, equalize=False, seed=42, method='method1'):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -94,6 +94,15 @@ class MedicalImageDataset(Dataset):
         self.equalize = equalize
         self.mode = mode
         np.random.seed(seed) # seed for reproducibility 
+        self.method = method
+
+    def __getitem__(self, index):
+        if self.method == 'method1':
+            return self.__getitem1__(index)
+        elif self.method == 'method2':
+            return self.__getitem2__(index)
+        else:
+            raise ValueError("Méthode de sélection invalide. Choisir 'method1' ou 'method2'")
 
 
     def __len__(self):
@@ -129,7 +138,7 @@ class MedicalImageDataset(Dataset):
         #     mask = F.affine(mask, angle=0, translate=(0, 0), scale=(0.6, 1.4), shear=0)
         return img, mask
 
-    def __getitem__(self, index):
+    def __getitem1__(self, index):
 
         if self.mode in ['train', 'val', 'test']:
             img_path, mask_path = self.imgs[index]
@@ -152,3 +161,29 @@ class MedicalImageDataset(Dataset):
                 mask = self.mask_transform(mask)
 
         return [img, mask, img_path] if self.mode in ['train', 'val', 'test'] else [img, None, img_path]
+
+    #utilisé uniquement pour unlabeledEval_set_full
+    def __getitem2__(self, index):
+            img_path, mask_path = self.imgs[index]
+            img = Image.open(img_path)
+            if mask_path is not None:
+                mask = Image.open(mask_path).convert('L')
+            else:
+                mask = None
+    
+            if self.equalize:
+                img = ImageOps.equalize(img)
+    
+            if self.augmentation and mask is not None:
+                img, mask = self.augment(img, mask)
+    
+    
+            if self.transform:
+                img = self.transform(img)
+                if mask_path is not None:
+                    mask = self.mask_transform(mask)
+            
+            if mask_path is not None:
+                return [img, mask, img_path]
+            else:
+                return [img, img_path]

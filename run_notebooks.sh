@@ -3,7 +3,7 @@
 #SBATCH --output=logs/output_%j.txt  # Log de sortie
 #SBATCH --error=logs/error_%j.txt   # Log d'erreur
 #SBATCH --account=def-chdesa
-#SBATCH --time=10:00:00             # Temps maximum (adapter)
+#SBATCH --time=1:00:00             # Temps maximum (adapter)
 #SBATCH --mem=16G                    # Mémoire (adapter)
 #SBATCH --cpus-per-task=4           # Nombre de CPU (adapter)
 #SBATCH --mail-type=ALL 
